@@ -1,0 +1,1808 @@
+x<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Schedule Builder — Conflict-Free Timetables</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F1E6;
+    --paper-line:#E1D8C4;
+    --ink:#1F2340;
+    --ink-soft:#565A78;
+    --board-bg:#14162B;
+    --board-bg-2:#191C35;
+    --board-line:#31355A;
+    --board-text:#F1EEE5;
+    --board-text-soft:#9BA0C4;
+    --accent:#E8A33D;
+    --accent-ink:#14162B;
+    --danger:#D1495B;
+    --danger-soft:#3A2230;
+    --radius-s:4px;
+    --radius-m:8px;
+    font-family:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100%;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+
+  .app{
+    display:grid;
+    grid-template-columns: 380px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width: 860px){
+    .app{grid-template-columns: 1fr;}
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    background:var(--paper);
+    border-right:1px solid var(--paper-line);
+    padding:28px 24px 40px;
+    overflow-y:auto;
+    max-height:100vh;
+  }
+  @media (max-width:860px){ .sidebar{max-height:none; border-right:none; border-bottom:1px solid var(--paper-line);} }
+
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:4px;
+  }
+  .brand .mark{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    color:var(--accent-ink);
+    background:var(--accent);
+    padding:3px 7px;
+    border-radius:var(--radius-s);
+  }
+  h1.title{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:28px;
+    line-height:1.15;
+    margin:10px 0 6px;
+    letter-spacing:-0.01em;
+  }
+  .subtitle{
+    font-size:14px;
+    color:var(--ink-soft);
+    line-height:1.5;
+    margin:0 0 26px;
+    max-width:34ch;
+  }
+
+  .section-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin:0 0 12px;
+  }
+
+  .course-card{
+    background:#fff;
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius-m);
+    padding:14px 14px 16px;
+    margin-bottom:14px;
+  }
+  .course-card-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .swatch{
+    width:11px;height:11px;border-radius:3px;flex:none;
+  }
+  .course-name-input{
+    flex:1;
+    border:none;
+    background:transparent;
+    font-family:'Fraunces', serif;
+    font-size:16.5px;
+    font-weight:600;
+    color:var(--ink);
+    padding:2px 0;
+    min-width:0;
+  }
+  .course-name-input:focus{outline:none; border-bottom:1px solid var(--accent);}
+  .icon-btn{
+    border:none;
+    background:transparent;
+    color:var(--ink-soft);
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    padding:4px 6px;
+    border-radius:var(--radius-s);
+  }
+  .icon-btn:hover{background:var(--paper); color:var(--danger);}
+
+  .slot-group{
+    margin-top:12px;
+  }
+  .slot-group-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:0.03em;
+    color:var(--ink-soft);
+    margin:0 0 8px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .slot-group-label .tag-dot{width:6px;height:6px;border-radius:50%;}
+  .slot-group-label.lecture .tag-dot{background:var(--ink);}
+  .slot-group-label.practice .tag-dot{background:var(--accent);}
+
+  .section-block{
+    border-top:1px dashed var(--paper-line);
+    padding-top:10px;
+    margin-top:10px;
+  }
+  .slot-group > .section-block:first-of-type{border-top:none; margin-top:0; padding-top:0;}
+  .section-head{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-bottom:8px;
+  }
+  .section-label-input{
+    flex:1;
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--ink-soft);
+    border:none;
+    background:var(--paper);
+    padding:4px 8px;
+    border-radius:var(--radius-s);
+    min-width:0;
+  }
+  .section-label-input:focus{outline:1px solid var(--accent);}
+
+  .meeting-row{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    background:var(--paper);
+    border-radius:var(--radius-s);
+    padding:8px;
+    margin-bottom:6px;
+  }
+  .day-toggles{display:flex; gap:3px;}
+  .day-btn{
+    width:24px;height:24px;
+    border:1px solid var(--paper-line);
+    background:#fff;
+    color:var(--ink-soft);
+    font-size:10.5px;
+    font-weight:600;
+    border-radius:50%;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .day-btn.on{
+    background:var(--ink);
+    border-color:var(--ink);
+    color:var(--paper);
+  }
+  .time-input{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius-s);
+    padding:4px 5px;
+    background:#fff;
+    color:var(--ink);
+    width:88px;
+  }
+  .time-sep{color:var(--ink-soft); font-size:12px;}
+  .remove-meeting{
+    margin-left:auto;
+    border:none;background:transparent;color:var(--ink-soft);
+    cursor:pointer; font-size:13px; padding:2px 4px;
+  }
+  .remove-meeting:hover{color:var(--danger);}
+
+  .add-meeting-btn, .add-section-btn{
+    border:1px dashed var(--paper-line);
+    background:transparent;
+    color:var(--ink-soft);
+    font-size:12px;
+    font-weight:600;
+    padding:6px 10px;
+    border-radius:var(--radius-s);
+    cursor:pointer;
+    width:100%;
+    text-align:left;
+  }
+  .add-meeting-btn:hover, .add-section-btn:hover{border-color:var(--accent); color:var(--ink);}
+  .add-section-btn{margin-top:8px;}
+
+  .empty-slot-note{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    font-style:italic;
+    margin:0 0 8px;
+  }
+
+  .add-course-btn{
+    width:100%;
+    border:1px solid var(--ink);
+    background:var(--paper);
+    color:var(--ink);
+    font-weight:600;
+    font-size:13.5px;
+    padding:11px;
+    border-radius:var(--radius-m);
+    cursor:pointer;
+    margin-bottom:22px;
+  }
+  .add-course-btn:hover{background:var(--ink); color:var(--paper);}
+
+  .generate-btn{
+    width:100%;
+    border:none;
+    background:var(--accent);
+    color:var(--accent-ink);
+    font-weight:700;
+    font-size:15px;
+    padding:14px;
+    border-radius:var(--radius-m);
+    cursor:pointer;
+    font-family:'Inter', sans-serif;
+    box-shadow: 0 2px 0 rgba(20,22,43,0.15);
+  }
+  .generate-btn:active{transform:translateY(1px); box-shadow:none;}
+  .generate-btn:hover{filter:brightness(1.05);}
+
+  .status-line{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-top:10px;
+    line-height:1.5;
+  }
+  .status-line.error{color:var(--danger);}
+
+  /* ---------- Board ---------- */
+  .board-wrap{
+    background:var(--board-bg);
+    color:var(--board-text);
+    padding:28px 30px 40px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .board-topbar{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:22px;
+  }
+  .board-counter-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--board-text-soft);
+    letter-spacing:0.03em;
+    margin:0 0 6px;
+  }
+  .board-counter{
+    font-family:'Fraunces', serif;
+    font-size:32px;
+    font-weight:600;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .board-counter .of{color:var(--board-text-soft); font-weight:400;}
+
+  .nav-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .nav-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    font-weight:600;
+    background:var(--board-bg-2);
+    border:1px solid var(--board-line);
+    color:var(--board-text);
+    padding:10px 16px;
+    border-radius:var(--radius-m);
+    cursor:pointer;
+  }
+  .nav-btn:hover:not(:disabled){border-color:var(--accent); color:var(--accent);}
+  .nav-btn:disabled{opacity:0.35; cursor:not-allowed;}
+
+  .board-scroll{
+    overflow-x:auto;
+    padding-bottom:6px;
+  }
+  .board-grid{
+    display:grid;
+    min-width:560px;
+  }
+  .day-header-row{
+    display:grid;
+    position:sticky;
+    top:0;
+  }
+  .day-header-cell{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--board-text-soft);
+    padding:0 6px 10px;
+    text-align:center;
+    letter-spacing:0.02em;
+  }
+  .grid-body-row{
+    display:grid;
+  }
+  .time-axis{
+    position:relative;
+  }
+  .time-label{
+    position:absolute;
+    right:10px;
+    transform:translateY(-50%);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--board-text-soft);
+  }
+  .day-col{
+    position:relative;
+    border-left:1px solid var(--board-line);
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--board-line) 0px, var(--board-line) 1px,
+      transparent 1px, transparent var(--hour-px)
+    );
+  }
+  .day-col:last-child{border-right:1px solid var(--board-line);}
+
+  .class-block{
+    position:absolute;
+    left:3px; right:3px;
+    border-radius:6px;
+    padding:6px 8px;
+    color:#171933;
+    font-size:11.5px;
+    line-height:1.35;
+    overflow:hidden;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.25);
+  }
+  .class-block.is-practice{
+    border:2px dashed rgba(23,25,51,0.4);
+  }
+  .class-block .ctype{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:0.05em;
+    opacity:0.65;
+    text-transform:uppercase;
+  }
+  .class-block .cname{font-weight:700; display:block;}
+  .class-block .cmeta{display:block; font-family:'IBM Plex Mono', monospace; font-size:10px; opacity:0.8; margin-top:2px;}
+
+  .legend{
+    margin-top:22px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .legend-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    color:var(--board-text-soft);
+  }
+  .legend-swatch{width:10px;height:10px;border-radius:3px;flex:none;}
+  .legend-swatch.is-practice{border:1.5px dashed rgba(241,238,229,0.6);}
+  .legend-row b{color:var(--board-text); font-weight:600;}
+  .legend-type{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    font-weight:700;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    color:var(--board-text-soft);
+  }
+  .legend-time{font-family:'IBM Plex Mono', monospace; font-size:11.5px; margin-left:auto;}
+
+  .empty-state{
+    margin:auto;
+    text-align:center;
+    max-width:360px;
+    color:var(--board-text-soft);
+  }
+  .empty-state .big{
+    font-family:'Fraunces', serif;
+    font-size:22px;
+    color:var(--board-text);
+    margin-bottom:8px;
+  }
+  .empty-state .small{font-size:13px; line-height:1.55;}
+
+  .search-note{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--board-text-soft);
+    margin-top:4px;
+  }
+
+  /* ============================================================
+     US2 — Degree Progress Analysis (isolated additions)
+     Only new classes below. Nothing above this comment was edited.
+     ============================================================ */
+  .top-tabs{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--paper);
+    border-bottom:1px solid var(--paper-line);
+    padding:10px 24px;
+  }
+  .top-tab-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    background:transparent;
+    border:1px solid transparent;
+    color:var(--ink-soft);
+    padding:8px 14px;
+    border-radius:var(--radius-m);
+    cursor:pointer;
+  }
+  .top-tab-btn:hover{color:var(--ink); border-color:var(--paper-line);}
+  .top-tab-btn.active{
+    background:var(--ink);
+    color:var(--paper);
+    border-color:var(--ink);
+  }
+  .view-pane{display:none;}
+  .view-pane.active{display:block;}
+
+  .degree-app{
+    display:grid;
+    grid-template-columns: 380px 1fr;
+    min-height:calc(100vh - 49px);
+  }
+  @media (max-width: 860px){ .degree-app{grid-template-columns: 1fr;} }
+
+  .degree-sidebar{
+    background:var(--paper);
+    border-right:1px solid var(--paper-line);
+    padding:28px 24px 40px;
+    overflow-y:auto;
+  }
+  @media (max-width:860px){ .degree-sidebar{border-right:none; border-bottom:1px solid var(--paper-line);} }
+
+  .degree-main{
+    background:var(--board-bg);
+    color:var(--board-text);
+    padding:28px 30px 40px;
+    min-height:100%;
+  }
+
+  .data-card{
+    background:#fff;
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius-m);
+    padding:14px;
+    margin-bottom:14px;
+  }
+  .data-card .k{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:0.03em;
+    color:var(--ink-soft);
+    margin:0 0 6px;
+  }
+  .data-card .v{
+    font-family:'Fraunces', serif;
+    font-size:22px;
+    font-weight:600;
+    margin:0;
+  }
+  .load-btn{
+    width:100%;
+    border:1px solid var(--ink);
+    background:var(--paper);
+    color:var(--ink);
+    font-weight:600;
+    font-size:13.5px;
+    padding:11px;
+    border-radius:var(--radius-m);
+    cursor:pointer;
+    margin-bottom:10px;
+  }
+  .load-btn:hover{background:var(--ink); color:var(--paper);}
+  .load-btn.loaded{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:var(--accent-ink);
+    cursor:default;
+  }
+  .degree-warning{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--danger);
+    background:var(--danger-soft);
+    border-radius:var(--radius-s);
+    padding:10px 12px;
+    line-height:1.5;
+    margin-bottom:14px;
+  }
+  .progress-track{
+    width:100%;
+    height:10px;
+    border-radius:6px;
+    background:var(--paper-line);
+    overflow:hidden;
+    margin:8px 0 4px;
+  }
+  .progress-fill{
+    height:100%;
+    background:var(--accent);
+    border-radius:6px;
+  }
+  .progress-caption{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+
+  .degree-topbar{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:22px;
+  }
+  .degree-filter-btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    font-weight:600;
+    background:var(--board-bg-2);
+    border:1px solid var(--board-line);
+    color:var(--board-text-soft);
+    padding:8px 14px;
+    border-radius:var(--radius-m);
+    cursor:pointer;
+  }
+  .degree-filter-btn.active{border-color:var(--accent); color:var(--accent);}
+
+  .req-category{margin-bottom:22px;}
+  .req-category-title{
+    font-family:'Fraunces', serif;
+    font-size:17px;
+    font-weight:600;
+    margin:0 0 4px;
+  }
+  .req-category-sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--board-text-soft);
+    margin:0 0 10px;
+  }
+  .req-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--board-bg-2);
+    border:1px solid var(--board-line);
+    border-radius:var(--radius-m);
+    padding:10px 14px;
+    margin-bottom:8px;
+  }
+  .req-status-dot{width:9px;height:9px;border-radius:50%;flex:none;}
+  .req-status-dot.done{background:#8BD3C7;}
+  .req-status-dot.in-progress{background:var(--accent);}
+  .req-status-dot.missing{background:var(--danger);}
+  .req-name{font-weight:600; flex:1;}
+  .req-name.done{color:var(--board-text-soft); text-decoration:line-through; text-decoration-color:var(--board-line);}
+  .req-credits{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--board-text-soft);
+  }
+  .req-badge{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    padding:3px 8px;
+    border-radius:20px;
+  }
+  .req-badge.done{background:rgba(139,211,199,0.18); color:#8BD3C7;}
+  .req-badge.in-progress{background:rgba(232,163,61,0.18); color:var(--accent);}
+  .req-badge.missing{background:rgba(209,73,91,0.18); color:#E9808F;}
+</style>
+</head>
+<body>
+
+<div class="top-tabs">
+  <button class="top-tab-btn active" id="tabScheduleBtn" type="button">01 · Schedule Builder</button>
+  <button class="top-tab-btn" id="tabDegreeBtn" type="button">02 · Degree Progress</button>
+</div>
+
+<!-- ============ VIEW 1: US1 — Schedule Builder (untouched) ============ -->
+<div class="view-pane active" id="paneSchedule">
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="brand"><span class="mark">01</span></div>
+    <h1 class="title">Schedule Builder</h1>
+    <p class="subtitle">Add your courses, list every lecture and practice you could take, and generate every combination that has zero time conflicts.</p>
+
+    <p class="section-label">YOUR COURSES</p>
+    <div id="courseList"></div>
+    <button class="add-course-btn" id="addCourseBtn">+ Add a course</button>
+
+    <button class="generate-btn" id="generateBtn">Generate schedules</button>
+    <div class="status-line" id="statusLine"></div>
+  </div>
+
+  <!-- BOARD -->
+  <div class="board-wrap">
+    <div class="board-topbar">
+      <div>
+        <p class="board-counter-label">RESULT</p>
+        <p class="board-counter" id="boardCounter">—</p>
+        <p class="search-note" id="searchNote"></p>
+      </div>
+      <div class="nav-controls">
+        <button class="nav-btn" id="prevBtn">← Previous</button>
+        <button class="nav-btn" id="nextBtn">Next →</button>
+      </div>
+    </div>
+
+    <div id="boardBody"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ============ VIEW 2: US2 — Degree Progress Analysis (new, isolated) ============ -->
+<div class="view-pane" id="paneDegree">
+<div class="degree-app">
+
+  <!-- DEGREE SIDEBAR -->
+  <div class="degree-sidebar">
+    <div class="brand"><span class="mark">02</span></div>
+    <h1 class="title">Degree Progress</h1>
+    <p class="subtitle">Load your transcript and degree audit to see exactly which required courses you still need for graduation.</p>
+
+    <button class="load-btn" id="loadDataBtn">Load transcript + degree audit</button>
+    <div id="degreeWarning"></div>
+
+    <p class="section-label">OVERVIEW</p>
+    <div class="data-card">
+      <p class="k">CREDITS COMPLETED</p>
+      <p class="v" id="creditsCompletedEl">—</p>
+      <div class="progress-track"><div class="progress-fill" id="creditsFillEl" style="width:0%"></div></div>
+      <p class="progress-caption" id="creditsCaptionEl"></p>
+    </div>
+    <div class="data-card">
+      <p class="k">CURRENTLY IN PROGRESS</p>
+      <p class="v" id="inProgressCountEl">—</p>
+    </div>
+    <div class="data-card">
+      <p class="k">REQUIRED COURSES REMAINING</p>
+      <p class="v" id="remainingCountEl">—</p>
+    </div>
+  </div>
+
+  <!-- DEGREE MAIN -->
+  <div class="degree-main">
+    <div class="degree-topbar">
+      <div>
+        <p class="board-counter-label">DEGREE AUDIT RESULT</p>
+        <p class="board-counter" id="degreeCounter">—</p>
+      </div>
+      <div class="nav-controls">
+        <button class="degree-filter-btn active" id="filterAllBtn" type="button">All</button>
+        <button class="degree-filter-btn" id="filterMissingBtn" type="button">Missing only</button>
+      </div>
+    </div>
+
+    <div id="degreeBody"></div>
+  </div>
+
+</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var DAY_ABBR = {Mon:'M', Tue:'T', Wed:'W', Thu:'Th', Fri:'F', Sat:'Sa', Sun:'Su'};
+  var PALETTE = ['#F2C14E','#5FB3B3','#E8734A','#8BD3C7','#C792EA','#7FB2E5','#F28FAD','#A9DC76','#F0A6CA','#87C4F0'];
+
+  var uidCounter = 1;
+  function uid(){ return 'id' + (uidCounter++); }
+
+  function mkMeeting(days, start, end){ return {id: uid(), days: days.slice(), start: start, end: end}; }
+  function mkSlot(label, meetings){ return {id: uid(), label: label, meetings: meetings}; }
+  function mkCourse(name, color, lectures, practices){ return {id: uid(), name: name, color: color, lectures: lectures, practices: practices || []}; }
+
+  var state = {
+    courses: [
+      mkCourse('Calculus II', PALETTE[0],
+        [
+          mkSlot('Lecture 01', [ mkMeeting(['Mon','Wed','Fri'], '09:00', '09:50') ]),
+          mkSlot('Lecture 02', [ mkMeeting(['Tue','Thu'], '09:30', '10:45') ])
+        ],
+        [
+          mkSlot('Practice 01', [ mkMeeting(['Thu'], '15:00', '15:50') ]),
+          mkSlot('Practice 02', [ mkMeeting(['Fri'], '10:00', '10:50') ])
+        ]
+      ),
+      mkCourse('Data Structures', PALETTE[1],
+        [
+          mkSlot('Lecture 01', [ mkMeeting(['Mon','Wed','Fri'], '09:00', '09:50') ]),
+          mkSlot('Lecture 02', [ mkMeeting(['Tue','Thu'], '12:30', '13:45') ])
+        ],
+        [
+          mkSlot('Practice 01', [ mkMeeting(['Wed'], '16:00', '16:50') ])
+        ]
+      ),
+      mkCourse('Intro to Psychology', PALETTE[2],
+        [
+          mkSlot('Lecture 01', [ mkMeeting(['Mon','Wed'], '11:00', '12:15') ]),
+          mkSlot('Lecture 02', [ mkMeeting(['Fri'], '13:00', '15:00') ])
+        ],
+        []
+      )
+    ],
+    results: [],   // array of picks: [{course, lecture, practice}, ...]
+    currentIndex: 0,
+    searched: false,
+    truncated: false,
+    combosChecked: 0
+  };
+
+  function nextColor(){
+    return PALETTE[(state.courses.length) % PALETTE.length];
+  }
+
+  // ---------- time helpers ----------
+  function toMinutes(hhmm){
+    var parts = hhmm.split(':');
+    return (parseInt(parts[0],10) * 60) + parseInt(parts[1],10);
+  }
+  function fmtTime(hhmm){
+    var m = toMinutes(hhmm);
+    var h = Math.floor(m/60), mm = m%60;
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12; if(h12 === 0) h12 = 12;
+    return h12 + (mm ? ':' + (mm<10?'0':'') + mm : '') + ampm.toLowerCase();
+  }
+
+  // ============================================================
+  // SIDEBAR RENDERING
+  // ============================================================
+  var courseListEl = document.getElementById('courseList');
+
+  function renderSidebar(){
+    courseListEl.innerHTML = '';
+    state.courses.forEach(function(course){
+      courseListEl.appendChild(renderCourseCard(course));
+    });
+  }
+
+  function renderCourseCard(course){
+    var card = document.createElement('div');
+    card.className = 'course-card';
+
+    var head = document.createElement('div');
+    head.className = 'course-card-head';
+
+    var swatch = document.createElement('div');
+    swatch.className = 'swatch';
+    swatch.style.background = course.color;
+
+    var nameInput = document.createElement('input');
+    nameInput.className = 'course-name-input';
+    nameInput.value = course.name;
+    nameInput.placeholder = 'Course name';
+    nameInput.addEventListener('input', function(){ course.name = nameInput.value; });
+
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'icon-btn';
+    removeBtn.title = 'Remove course';
+    removeBtn.textContent = '✕';
+    removeBtn.addEventListener('click', function(){
+      state.courses = state.courses.filter(function(c){ return c.id !== course.id; });
+      renderSidebar();
+    });
+
+    head.appendChild(swatch);
+    head.appendChild(nameInput);
+    head.appendChild(removeBtn);
+    card.appendChild(head);
+
+    card.appendChild(renderSlotGroup(course, 'lecture', 'Lectures', course.lectures, function(){
+      course.lectures.push(mkSlot('Lecture ' + (course.lectures.length+1), [ mkMeeting(['Mon'], '09:00', '09:50') ]));
+      renderSidebar();
+    }));
+
+    card.appendChild(renderSlotGroup(course, 'practice', 'Practices', course.practices, function(){
+      course.practices.push(mkSlot('Practice ' + (course.practices.length+1), [ mkMeeting(['Mon'], '15:00', '15:50') ]));
+      renderSidebar();
+    }));
+
+    return card;
+  }
+
+  function renderSlotGroup(course, kind, groupLabel, slots, onAdd){
+    var group = document.createElement('div');
+    group.className = 'slot-group';
+
+    var label = document.createElement('p');
+    label.className = 'slot-group-label ' + kind;
+    label.innerHTML = '<span class="tag-dot"></span>' + groupLabel;
+    group.appendChild(label);
+
+    if(slots.length === 0){
+      var note = document.createElement('p');
+      note.className = 'empty-slot-note';
+      note.textContent = kind === 'practice' ? 'No practice session for this course.' : 'No lectures added yet.';
+      group.appendChild(note);
+    }
+
+    slots.forEach(function(slot){
+      group.appendChild(renderSlotBlock(course, slots, slot));
+    });
+
+    var addBtn = document.createElement('button');
+    addBtn.className = 'add-section-btn';
+    addBtn.textContent = '+ Add ' + (kind === 'practice' ? 'practice' : 'lecture');
+    addBtn.addEventListener('click', onAdd);
+    group.appendChild(addBtn);
+
+    return group;
+  }
+
+  function renderSlotBlock(course, slotArray, slot){
+    var block = document.createElement('div');
+    block.className = 'section-block';
+
+    var sHead = document.createElement('div');
+    sHead.className = 'section-head';
+
+    var labelInput = document.createElement('input');
+    labelInput.className = 'section-label-input';
+    labelInput.value = slot.label;
+    labelInput.addEventListener('input', function(){ slot.label = labelInput.value; });
+
+    var removeSlotBtn = document.createElement('button');
+    removeSlotBtn.className = 'icon-btn';
+    removeSlotBtn.title = 'Remove';
+    removeSlotBtn.textContent = '✕';
+    removeSlotBtn.addEventListener('click', function(){
+      var idx = slotArray.indexOf(slot);
+      if(idx > -1) slotArray.splice(idx,1);
+      renderSidebar();
+    });
+
+    sHead.appendChild(labelInput);
+    sHead.appendChild(removeSlotBtn);
+    block.appendChild(sHead);
+
+    slot.meetings.forEach(function(meeting){
+      block.appendChild(renderMeetingRow(slot, meeting));
+    });
+
+    var addMeetingBtn = document.createElement('button');
+    addMeetingBtn.className = 'add-meeting-btn';
+    addMeetingBtn.textContent = '+ Add meeting time';
+    addMeetingBtn.addEventListener('click', function(){
+      slot.meetings.push(mkMeeting(['Mon'], '09:00', '09:50'));
+      renderSidebar();
+    });
+    block.appendChild(addMeetingBtn);
+
+    return block;
+  }
+
+  function renderMeetingRow(slot, meeting){
+    var row = document.createElement('div');
+    row.className = 'meeting-row';
+
+    var toggles = document.createElement('div');
+    toggles.className = 'day-toggles';
+    DAYS.forEach(function(day){
+      var btn = document.createElement('button');
+      btn.className = 'day-btn' + (meeting.days.indexOf(day) > -1 ? ' on' : '');
+      btn.textContent = DAY_ABBR[day];
+      btn.type = 'button';
+      btn.addEventListener('click', function(){
+        var idx = meeting.days.indexOf(day);
+        if(idx > -1){ meeting.days.splice(idx,1); } else { meeting.days.push(day); }
+        renderSidebar();
+      });
+      toggles.appendChild(btn);
+    });
+
+    var startInput = document.createElement('input');
+    startInput.type = 'time';
+    startInput.className = 'time-input';
+    startInput.value = meeting.start;
+    startInput.addEventListener('input', function(){ meeting.start = startInput.value; });
+
+    var sep = document.createElement('span');
+    sep.className = 'time-sep';
+    sep.textContent = '–';
+
+    var endInput = document.createElement('input');
+    endInput.type = 'time';
+    endInput.className = 'time-input';
+    endInput.value = meeting.end;
+    endInput.addEventListener('input', function(){ meeting.end = endInput.value; });
+
+    var removeMeetingBtn = document.createElement('button');
+    removeMeetingBtn.className = 'remove-meeting';
+    removeMeetingBtn.textContent = '✕';
+    removeMeetingBtn.title = 'Remove meeting time';
+    removeMeetingBtn.addEventListener('click', function(){
+      slot.meetings = slot.meetings.filter(function(m){ return m.id !== meeting.id; });
+      renderSidebar();
+    });
+
+    row.appendChild(toggles);
+    row.appendChild(startInput);
+    row.appendChild(sep);
+    row.appendChild(endInput);
+    row.appendChild(removeMeetingBtn);
+    return row;
+  }
+
+  document.getElementById('addCourseBtn').addEventListener('click', function(){
+    state.courses.push(mkCourse('New course', nextColor(),
+      [ mkSlot('Lecture 01', [ mkMeeting(['Mon'], '09:00', '09:50') ]) ],
+      []
+    ));
+    renderSidebar();
+  });
+
+  // ============================================================
+  // SCHEDULE GENERATION (backtracking with early pruning)
+  // ============================================================
+  var NODE_BUDGET = 400000;   // hard cap on search nodes explored
+  var RESULT_CAP = 500;       // hard cap on stored valid schedules
+
+  function overlaps(aStart, aEnd, bStart, bEnd){
+    return aStart < bEnd && bStart < aEnd;
+  }
+
+  function meetingsInMinutes(slot){
+    if(slot.__mm) return slot.__mm;
+    var mm = [];
+    slot.meetings.forEach(function(meeting){
+      var s = toMinutes(meeting.start);
+      var e = toMinutes(meeting.end);
+      meeting.days.forEach(function(day){
+        mm.push({day: day, start: s, end: e});
+      });
+    });
+    slot.__mm = mm;
+    return mm;
+  }
+
+  function hasInternalOverlap(mm){
+    for(var i=0;i<mm.length;i++){
+      for(var j=i+1;j<mm.length;j++){
+        if(mm[i].day === mm[j].day && overlaps(mm[i].start, mm[i].end, mm[j].start, mm[j].end)) return true;
+      }
+    }
+    return false;
+  }
+
+  function buildCourseOptions(course){
+    var practiceChoices = course.practices.length ? course.practices : [null];
+    var options = [];
+    course.lectures.forEach(function(lecture){
+      var lecMM = meetingsInMinutes(lecture);
+      practiceChoices.forEach(function(practice){
+        var mm = practice ? lecMM.concat(meetingsInMinutes(practice)) : lecMM.slice();
+        if(hasInternalOverlap(mm)) return; // lecture and practice can't happen at the same time
+        options.push({lecture: lecture, practice: practice, mm: mm});
+      });
+    });
+    return options;
+  }
+
+  function generateSchedules(courses){
+    var results = [];
+    var nodesExplored = 0;
+    var truncated = false;
+
+    var busyByDay = {};
+    DAYS.forEach(function(d){ busyByDay[d] = []; });
+
+    var courseOptions = courses.map(buildCourseOptions);
+    var picks = new Array(courses.length);
+
+    function fits(mm){
+      for(var i=0;i<mm.length;i++){
+        var m = mm[i];
+        var list = busyByDay[m.day];
+        for(var j=0;j<list.length;j++){
+          if(overlaps(m.start, m.end, list[j].start, list[j].end)) return false;
+        }
+      }
+      return true;
+    }
+    function commit(mm){ mm.forEach(function(m){ busyByDay[m.day].push(m); }); }
+    function uncommit(mm){ mm.forEach(function(m){
+      var list = busyByDay[m.day];
+      var idx = list.indexOf(m);
+      if(idx > -1) list.splice(idx,1);
+    }); }
+
+    function backtrack(courseIndex){
+      if(truncated) return;
+      if(results.length >= RESULT_CAP){ truncated = true; return; }
+
+      if(courseIndex === courses.length){
+        results.push(picks.slice());
+        return;
+      }
+
+      var course = courses[courseIndex];
+      var options = courseOptions[courseIndex];
+      for(var i=0;i<options.length;i++){
+        nodesExplored++;
+        if(nodesExplored > NODE_BUDGET){ truncated = true; return; }
+
+        var option = options[i];
+        if(fits(option.mm)){
+          commit(option.mm);
+          picks[courseIndex] = {course: course, lecture: option.lecture, practice: option.practice};
+          backtrack(courseIndex + 1);
+          uncommit(option.mm);
+          if(truncated) return;
+        }
+      }
+    }
+
+    backtrack(0);
+
+    return {results: results, nodesExplored: nodesExplored, truncated: truncated};
+  }
+
+ // ============================================================
+  // GENERATE BUTTON
+  // ============================================================
+  var statusLine = document.getElementById('statusLine');
+
+  document.getElementById('generateBtn').addEventListener('click', async function(){ // <--- добавили async
+    statusLine.className = 'status-line';
+    statusLine.textContent = '';
+
+    // === ВСТАВИТЬ ЭТОТ БЛОК (Сохранение в базу данных Python) ===
+    try {
+      await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state.courses)
+      });
+    } catch (err) {
+      console.error("Не удалось сохранить в БД:", err);
+    }
+    // ============================================================
+
+    var badCourse = state.courses.find(function(c){ return c.lectures.length === 0; });
+    if(badCourse){
+      statusLine.className = 'status-line error';
+      statusLine.textContent = 'Add at least one lecture to "' + (badCourse.name || 'Untitled course') + '".';
+      return;
+    }
+
+    var badCourse = state.courses.find(function(c){ return c.lectures.length === 0; });
+    if(badCourse){
+      statusLine.className = 'status-line error';
+      statusLine.textContent = 'Add at least one lecture to "' + (badCourse.name || 'Untitled course') + '".';
+      return;
+    }
+    var badMeeting = null;
+    state.courses.forEach(function(c){
+      c.lectures.concat(c.practices).forEach(function(s){
+        s.meetings.forEach(function(m){
+          if(m.days.length === 0 || !m.start || !m.end || toMinutes(m.end) <= toMinutes(m.start)){
+            badMeeting = c;
+          }
+        });
+      });
+    });
+    if(badMeeting){
+      statusLine.className = 'status-line error';
+      statusLine.textContent = 'Check the meeting times for "' + (badMeeting.name || 'Untitled course') + '" — pick at least one day and an end time after the start time.';
+      return;
+    }
+    if(state.courses.length === 0){
+      statusLine.className = 'status-line error';
+      statusLine.textContent = 'Add at least one course to get started.';
+      return;
+    }
+
+    state.courses.forEach(function(c){ c.lectures.concat(c.practices).forEach(function(s){ delete s.__mm; }); });
+
+    var t0 = performance.now();
+    var out = generateSchedules(state.courses);
+    var elapsedMs = performance.now() - t0;
+
+    state.results = out.results;
+    state.currentIndex = 0;
+    state.searched = true;
+    state.truncated = out.truncated;
+    state.combosChecked = out.nodesExplored;
+    state.elapsedMs = elapsedMs;
+
+    renderBoard();
+  });
+
+  // ============================================================
+  // BOARD RENDERING
+  // ============================================================
+  var boardCounterEl = document.getElementById('boardCounter');
+  var searchNoteEl = document.getElementById('searchNote');
+  var boardBodyEl = document.getElementById('boardBody');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+
+  function pickSlots(pick){
+    var slots = [{type:'lecture', slot: pick.lecture}];
+    if(pick.practice) slots.push({type:'practice', slot: pick.practice});
+    return slots;
+  }
+
+  function daysUsedByPicks(picks){
+    var used = {};
+    picks.forEach(function(p){
+      pickSlots(p).forEach(function(entry){
+        entry.slot.meetings.forEach(function(m){
+          m.days.forEach(function(d){ used[d] = true; });
+        });
+      });
+    });
+    var ordered = DAYS.filter(function(d){ return used[d]; });
+    var base = ['Mon','Tue','Wed','Thu','Fri'];
+    base.forEach(function(d){ if(!used[d]) ordered.push(d); });
+    return DAYS.filter(function(d){ return ordered.indexOf(d) > -1; });
+  }
+
+  function timeRangeByPicks(picks){
+    var min = 24*60, max = 0;
+    picks.forEach(function(p){
+      pickSlots(p).forEach(function(entry){
+        entry.slot.meetings.forEach(function(m){
+          var s = toMinutes(m.start), e = toMinutes(m.end);
+          if(s < min) min = s;
+          if(e > max) max = e;
+        });
+      });
+    });
+    if(max <= min){ min = 8*60; max = 18*60; }
+    min = Math.floor((min - 30) / 60) * 60;
+    max = Math.ceil((max + 30) / 60) * 60;
+    min = Math.max(min, 0);
+    max = Math.min(max, 24*60);
+    return {min: min, max: max};
+  }
+
+  function renderBoard(){
+    if(!state.searched){
+      boardCounterEl.textContent = '—';
+      searchNoteEl.textContent = '';
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+      boardBodyEl.innerHTML = '';
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.style.minHeight = '60vh';
+      empty.style.display = 'flex';
+      empty.style.flexDirection = 'column';
+      empty.style.justifyContent = 'center';
+      empty.innerHTML = '<div class="big">No schedules generated yet</div><div class="small">Build your course list on the left, then generate schedules. Only combinations with zero overlapping classes will be shown.</div>';
+      boardBodyEl.appendChild(empty);
+      return;
+    }
+
+    var total = state.results.length;
+
+    if(total === 0){
+      boardCounterEl.textContent = '0 of 0';
+      searchNoteEl.textContent = state.combosChecked + ' combinations checked in ' + Math.round(state.elapsedMs) + 'ms';
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+      boardBodyEl.innerHTML = '';
+      var empty2 = document.createElement('div');
+      empty2.className = 'empty-state';
+      empty2.style.minHeight = '60vh';
+      empty2.style.display = 'flex';
+      empty2.style.flexDirection = 'column';
+      empty2.style.justifyContent = 'center';
+      empty2.innerHTML = '<div class="big">No conflict-free schedule exists</div><div class="small">Every combination of your lectures and practices overlaps somewhere. Try adding an alternate lecture or practice time, or adjusting a meeting time.</div>';
+      boardBodyEl.appendChild(empty2);
+      return;
+    }
+
+    if(state.currentIndex >= total) state.currentIndex = total - 1;
+    if(state.currentIndex < 0) state.currentIndex = 0;
+
+    boardCounterEl.innerHTML = 'Schedule ' + (state.currentIndex + 1) + '<span class="of"> of ' + total + '</span>';
+    var note = state.combosChecked + ' combinations checked in ' + Math.round(state.elapsedMs) + 'ms';
+    if(state.truncated) note += ' — search limited by budget, showing schedules found so far';
+    searchNoteEl.textContent = note;
+
+    prevBtn.disabled = state.currentIndex === 0;
+    nextBtn.disabled = state.currentIndex === total - 1;
+
+    var picks = state.results[state.currentIndex];
+    boardBodyEl.innerHTML = '';
+    boardBodyEl.appendChild(renderGrid(picks));
+    boardBodyEl.appendChild(renderLegend(picks));
+  }
+
+  function renderGrid(picks){
+    var wrap = document.createElement('div');
+    wrap.className = 'board-scroll';
+
+    var days = daysUsedByPicks(picks);
+    var range = timeRangeByPicks(picks);
+    var pxPerMin = 1.05;
+    var hourPx = 60 * pxPerMin;
+    var totalHeight = (range.max - range.min) * pxPerMin;
+
+    var grid = document.createElement('div');
+    grid.className = 'board-grid';
+    grid.style.gridTemplateColumns = '60px repeat(' + days.length + ', minmax(90px, 1fr))';
+
+    var headerRow = document.createElement('div');
+    headerRow.className = 'day-header-row';
+    headerRow.style.gridColumn = '1 / -1';
+    headerRow.style.display = 'grid';
+    headerRow.style.gridTemplateColumns = '60px repeat(' + days.length + ', minmax(90px, 1fr))';
+
+    var corner = document.createElement('div');
+    headerRow.appendChild(corner);
+    days.forEach(function(d){
+      var cell = document.createElement('div');
+      cell.className = 'day-header-cell';
+      cell.textContent = d;
+      headerRow.appendChild(cell);
+    });
+    grid.appendChild(headerRow);
+
+    var bodyRow = document.createElement('div');
+    bodyRow.className = 'grid-body-row';
+    bodyRow.style.gridColumn = '1 / -1';
+    bodyRow.style.display = 'grid';
+    bodyRow.style.gridTemplateColumns = '60px repeat(' + days.length + ', minmax(90px, 1fr))';
+
+    var timeAxis = document.createElement('div');
+    timeAxis.className = 'time-axis';
+    timeAxis.style.height = totalHeight + 'px';
+    for(var t = range.min; t <= range.max; t += 60){
+      var label = document.createElement('div');
+      label.className = 'time-label';
+      label.style.top = ((t - range.min) * pxPerMin) + 'px';
+      label.textContent = fmtTime((Math.floor(t/60) < 10 ? '0' : '') + Math.floor(t/60) + ':00');
+      timeAxis.appendChild(label);
+    }
+    bodyRow.appendChild(timeAxis);
+
+    days.forEach(function(day){
+      var col = document.createElement('div');
+      col.className = 'day-col';
+      col.style.height = totalHeight + 'px';
+      col.style.setProperty('--hour-px', hourPx + 'px');
+
+      picks.forEach(function(p){
+        pickSlots(p).forEach(function(entry){
+          entry.slot.meetings.forEach(function(m){
+            if(m.days.indexOf(day) === -1) return;
+            var s = toMinutes(m.start), e = toMinutes(m.end);
+            var block = document.createElement('div');
+            block.className = 'class-block' + (entry.type === 'practice' ? ' is-practice' : '');
+            block.style.background = p.course.color;
+            block.style.top = ((s - range.min) * pxPerMin) + 'px';
+            block.style.height = Math.max((e - s) * pxPerMin - 2, 20) + 'px';
+            block.innerHTML = '<span class="ctype">' + entry.type + '</span>' +
+                               '<span class="cname">' + escapeHtml(p.course.name || 'Untitled') + '</span>' +
+                               '<span class="cmeta">' + escapeHtml(entry.slot.label || '') + '</span>' +
+                               '<span class="cmeta">' + fmtTime(m.start) + '–' + fmtTime(m.end) + '</span>';
+            col.appendChild(block);
+          });
+        });
+      });
+
+      bodyRow.appendChild(col);
+    });
+
+    grid.appendChild(bodyRow);
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function renderLegend(picks){
+    var wrap = document.createElement('div');
+    wrap.className = 'legend';
+    picks.forEach(function(p){
+      pickSlots(p).forEach(function(entry){
+        var row = document.createElement('div');
+        row.className = 'legend-row';
+        var sw = document.createElement('div');
+        sw.className = 'legend-swatch' + (entry.type === 'practice' ? ' is-practice' : '');
+        sw.style.background = p.course.color;
+        var label = document.createElement('span');
+        label.innerHTML = '<span class="legend-type">' + entry.type + '</span> &nbsp;<b>' + escapeHtml(p.course.name || 'Untitled') + '</b> — ' + escapeHtml(entry.slot.label || '');
+        var timeSummary = entry.slot.meetings.map(function(m){
+          return m.days.map(function(d){ return DAY_ABBR[d]; }).join('') + ' ' + fmtTime(m.start) + '–' + fmtTime(m.end);
+        }).join(', ');
+        var time = document.createElement('span');
+        time.className = 'legend-time';
+        time.textContent = timeSummary;
+
+        row.appendChild(sw);
+        row.appendChild(label);
+        row.appendChild(time);
+        wrap.appendChild(row);
+      });
+    });
+    return wrap;
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  prevBtn.addEventListener('click', function(){
+    if(state.currentIndex > 0){ state.currentIndex--; renderBoard(); }
+  });
+  nextBtn.addEventListener('click', function(){
+    if(state.currentIndex < state.results.length - 1){ state.currentIndex++; renderBoard(); }
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'ArrowLeft') prevBtn.click();
+    if(e.key === 'ArrowRight') nextBtn.click();
+  });
+
+  async function loadCoursesFromBackend() {
+    try {
+      const res = await fetch('/api/courses');
+      const data = await res.json();
+      if (data && data.length > 0) {
+        state.courses = data;
+        renderSidebar();
+      }
+    } catch (err) {
+      console.error("Ошибка загрузки с бэкенда:", err);
+    }
+  }
+  // ============================
+
+  // init
+  renderSidebar();
+  renderBoard();
+})();
+</script>
+
+<!-- ============================================================
+     US2 — Degree Progress Analysis
+     Separate, self-contained script. Does not read, call, or
+     depend on anything from the Schedule Builder script above.
+     ============================================================ -->
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Tab switching (shared chrome only, no US1 logic touched) ----------
+  var tabScheduleBtn = document.getElementById('tabScheduleBtn');
+  var tabDegreeBtn = document.getElementById('tabDegreeBtn');
+  var paneSchedule = document.getElementById('paneSchedule');
+  var paneDegree = document.getElementById('paneDegree');
+
+  tabScheduleBtn.addEventListener('click', function(){
+    tabScheduleBtn.classList.add('active');
+    tabDegreeBtn.classList.remove('active');
+    paneSchedule.classList.add('active');
+    paneDegree.classList.remove('active');
+  });
+  tabDegreeBtn.addEventListener('click', function(){
+    tabDegreeBtn.classList.add('active');
+    tabScheduleBtn.classList.remove('active');
+    paneDegree.classList.add('active');
+    paneSchedule.classList.remove('active');
+  });
+
+  // ---------- Test data generators (stand-ins for real integrations) ----------
+  // Pre-requirement: "Academic transcript, completed credit history, and degree
+  // audit database loaded into the system." Until the student clicks "Load",
+  // we treat that pre-requirement as unmet and show a warning instead of results.
+
+  function generateCompletedCourses(){
+    // Student's transcript / completed credit history.
+    // Test scenario: only 2 courses fully completed so far.
+    return [
+      {code:'MATH101', name:'Calculus I', credits:5},
+      {code:'ENG101',  name:'Academic Writing', credits:4}
+    ];
+  }
+
+  function generateInProgressCourses(){
+    // Courses the student is currently enrolled in (started, not yet graded).
+    // Test scenario: the 3rd course has just begun.
+    return [
+      {code:'CS101', name:'Intro to Programming', credits:5}
+    ];
+  }
+
+  function generateDegreeAudit(){
+    // Degree audit database: required courses grouped by requirement category.
+    // Test scenario: a 240-credit (ECTS-style) bachelor's program.
+    return [
+      {
+        category: 'Core Mathematics',
+        required: [
+          {code:'MATH101', name:'Calculus I', credits:5},
+          {code:'MATH102', name:'Calculus II', credits:5},
+          {code:'MATH201', name:'Linear Algebra', credits:5},
+          {code:'MATH210', name:'Probability & Statistics', credits:5}
+        ]
+      },
+      {
+        category: 'Computer Science Core',
+        required: [
+          {code:'CS101', name:'Intro to Programming', credits:5},
+          {code:'CS102', name:'Object-Oriented Programming', credits:5},
+          {code:'CS201', name:'Data Structures', credits:5},
+          {code:'CS210', name:'Discrete Mathematics', credits:5},
+          {code:'CS301', name:'Algorithms', credits:5},
+          {code:'CS310', name:'Databases', credits:5},
+          {code:'CS320', name:'Operating Systems', credits:5},
+          {code:'CS330', name:'Computer Networks', credits:5}
+        ]
+      },
+      {
+        category: 'General Education',
+        required: [
+          {code:'ENG101',  name:'Academic Writing', credits:4},
+          {code:'ENG102',  name:'English for Academic Purposes II', credits:4},
+          {code:'HIST101', name:'History of Kazakhstan', credits:4},
+          {code:'PHIL101', name:'Philosophy', credits:4},
+          {code:'SOC120',  name:'Introduction to Sociology', credits:4},
+          {code:'PED100',  name:'Physical Education', credits:4}
+        ]
+      },
+      {
+        category: 'Natural Sciences',
+        required: [
+          {code:'PHYS101', name:'Physics I', credits:4},
+          {code:'PHYS102', name:'Physics II', credits:4},
+          {code:'CHEM101', name:'General Chemistry', credits:4},
+          {code:'BIO101',  name:'Introduction to Biology', credits:4}
+        ]
+      },
+      {
+        category: 'Major / Specialization',
+        required: [
+          {code:'CS340', name:'Software Engineering', credits:6},
+          {code:'CS350', name:'Web Development', credits:6},
+          {code:'CS360', name:'Mobile App Development', credits:6},
+          {code:'CS401', name:'Artificial Intelligence', credits:6},
+          {code:'CS410', name:'Machine Learning', credits:6},
+          {code:'CS420', name:'Human-Computer Interaction', credits:6},
+          {code:'CS430', name:'Cloud Computing', credits:6},
+          {code:'CS440', name:'Cybersecurity Fundamentals', credits:6},
+          {code:'CS450', name:'Distributed Systems', credits:6},
+          {code:'CS460', name:'Software Testing & QA', credits:6}
+        ]
+      },
+      {
+        category: 'Electives',
+        required: [
+          {code:'ELEC01', name:'Technical Writing', credits:5},
+          {code:'ELEC02', name:'Entrepreneurship Basics', credits:5},
+          {code:'ELEC03', name:'Digital Marketing', credits:5},
+          {code:'ELEC04', name:'Project Management', credits:5},
+          {code:'ELEC05', name:'UX / UI Design', credits:5},
+          {code:'ELEC06', name:'Game Development', credits:5},
+          {code:'ELEC07', name:'Data Visualization', credits:5},
+          {code:'ELEC08', name:'Blockchain Basics', credits:5}
+        ]
+      },
+      {
+        category: 'Practicum / Internship',
+        required: [
+          {code:'INT301', name:'Industry Internship I', credits:10},
+          {code:'INT401', name:'Industry Internship II', credits:10}
+        ]
+      },
+      {
+        category: 'Capstone',
+        required: [
+          {code:'CS490', name:'Senior Capstone Project', credits:20}
+        ]
+      }
+    ];
+  }
+
+  var degreeState = {
+    loaded: false,
+    completed: [],
+    inProgress: [],
+    audit: [],
+    filter: 'all' // 'all' | 'missing'
+  };
+
+  // ---------- Comparison logic ----------
+  function analyzeDegreeAudit(completed, inProgress, audit){
+    var completedCodes = {};
+    completed.forEach(function(c){ completedCodes[c.code] = true; });
+    var inProgressCodes = {};
+    inProgress.forEach(function(c){ inProgressCodes[c.code] = true; });
+
+    var categories = audit.map(function(cat){
+      var rows = cat.required.map(function(req){
+        var status = completedCodes[req.code] ? 'done'
+          : inProgressCodes[req.code] ? 'in-progress'
+          : 'missing';
+        return {
+          code: req.code,
+          name: req.name,
+          credits: req.credits,
+          status: status
+        };
+      });
+      var missingCount = rows.filter(function(r){ return r.status === 'missing'; }).length;
+      var inProgressCount = rows.filter(function(r){ return r.status === 'in-progress'; }).length;
+      return {category: cat.category, rows: rows, missingCount: missingCount, inProgressCount: inProgressCount};
+    });
+
+    var totalRequired = 0, totalMissing = 0, totalInProgress = 0;
+    categories.forEach(function(cat){
+      totalRequired += cat.rows.length;
+      totalMissing += cat.missingCount;
+      totalInProgress += cat.inProgressCount;
+    });
+
+    var completedCredits = completed.reduce(function(sum, c){ return sum + c.credits; }, 0);
+    var inProgressCredits = inProgress.reduce(function(sum, c){ return sum + c.credits; }, 0);
+    var requiredCredits = 0;
+    categories.forEach(function(cat){
+      cat.rows.forEach(function(r){ requiredCredits += r.credits; });
+    });
+
+    return {
+      categories: categories,
+      totalRequired: totalRequired,
+      totalMissing: totalMissing,
+      totalInProgress: totalInProgress,
+      completedCredits: completedCredits,
+      inProgressCredits: inProgressCredits,
+      requiredCredits: requiredCredits
+    };
+  }
+
+  // ---------- Rendering ----------
+  var loadDataBtn = document.getElementById('loadDataBtn');
+  var degreeWarningEl = document.getElementById('degreeWarning');
+  var creditsCompletedEl = document.getElementById('creditsCompletedEl');
+  var creditsFillEl = document.getElementById('creditsFillEl');
+  var creditsCaptionEl = document.getElementById('creditsCaptionEl');
+  var inProgressCountEl = document.getElementById('inProgressCountEl');
+  var remainingCountEl = document.getElementById('remainingCountEl');
+  var degreeCounterEl = document.getElementById('degreeCounter');
+  var degreeBodyEl = document.getElementById('degreeBody');
+  var filterAllBtn = document.getElementById('filterAllBtn');
+  var filterMissingBtn = document.getElementById('filterMissingBtn');
+
+  function escapeHtmlDegree(str){
+    return String(str).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  function renderDegreeWarning(){
+    if(degreeState.loaded){
+      degreeWarningEl.innerHTML = '';
+      return;
+    }
+    degreeWarningEl.innerHTML = '<div class="degree-warning">No transcript or degree audit data loaded yet. Click "Load transcript + degree audit" to run the analysis. (Pre-requirement: academic transcript, completed credit history, and degree audit database must be loaded.)</div>';
+  }
+
+  function renderDegreeOverview(analysis){
+    if(!degreeState.loaded){
+      creditsCompletedEl.textContent = '—';
+      creditsFillEl.style.width = '0%';
+      creditsCaptionEl.textContent = '';
+      inProgressCountEl.textContent = '—';
+      remainingCountEl.textContent = '—';
+      degreeCounterEl.textContent = '—';
+      return;
+    }
+    var pct = analysis.requiredCredits > 0
+      ? Math.min(100, Math.round((analysis.completedCredits / analysis.requiredCredits) * 100))
+      : 0;
+    creditsCompletedEl.textContent = analysis.completedCredits + ' / ' + analysis.requiredCredits;
+    creditsFillEl.style.width = pct + '%';
+    creditsCaptionEl.textContent = pct + '% of required credits completed ('
+      + analysis.inProgressCredits + ' cr currently in progress)';
+    inProgressCountEl.textContent = analysis.totalInProgress;
+    remainingCountEl.textContent = analysis.totalMissing;
+    degreeCounterEl.innerHTML = analysis.totalMissing + '<span class="of"> of ' + analysis.totalRequired + ' required courses still not started</span>';
+  }
+
+  function renderDegreeBody(analysis){
+    degreeBodyEl.innerHTML = '';
+
+    if(!degreeState.loaded){
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.style.minHeight = '50vh';
+      empty.style.display = 'flex';
+      empty.style.flexDirection = 'column';
+      empty.style.justifyContent = 'center';
+      empty.innerHTML = '<div class="big">No degree audit data yet</div><div class="small">Load your transcript and degree audit on the left to see your remaining graduation requirements.</div>';
+      degreeBodyEl.appendChild(empty);
+      return;
+    }
+
+    var anyRowsShown = false;
+
+    analysis.categories.forEach(function(cat){
+      var rows = cat.rows.filter(function(r){
+        return degreeState.filter === 'all' || r.status !== 'done';
+      });
+      if(rows.length === 0) return;
+      anyRowsShown = true;
+
+      var block = document.createElement('div');
+      block.className = 'req-category';
+
+      var title = document.createElement('p');
+      title.className = 'req-category-title';
+      title.textContent = cat.category;
+      block.appendChild(title);
+
+      var sub = document.createElement('p');
+      sub.className = 'req-category-sub';
+      sub.textContent = (cat.rows.length - cat.missingCount - cat.inProgressCount) + ' of ' + cat.rows.length + ' completed'
+        + (cat.inProgressCount ? ', ' + cat.inProgressCount + ' in progress' : '');
+      block.appendChild(sub);
+
+      rows.forEach(function(r){
+        var row = document.createElement('div');
+        row.className = 'req-row';
+
+        var dot = document.createElement('div');
+        dot.className = 'req-status-dot ' + r.status;
+
+        var name = document.createElement('span');
+        name.className = 'req-name' + (r.status === 'done' ? ' done' : '');
+        name.textContent = r.code + ' — ' + r.name;
+
+        var credits = document.createElement('span');
+        credits.className = 'req-credits';
+        credits.textContent = r.credits + ' cr';
+
+        var badgeText = r.status === 'done' ? 'Completed'
+          : r.status === 'in-progress' ? 'In Progress'
+          : 'Missing';
+        var badge = document.createElement('span');
+        badge.className = 'req-badge ' + r.status;
+        badge.textContent = badgeText;
+
+        row.appendChild(dot);
+        row.appendChild(name);
+        row.appendChild(credits);
+        row.appendChild(badge);
+        block.appendChild(row);
+      });
+
+      degreeBodyEl.appendChild(block);
+    });
+
+    if(!anyRowsShown){
+      var empty2 = document.createElement('div');
+      empty2.className = 'empty-state';
+      empty2.style.minHeight = '50vh';
+      empty2.style.display = 'flex';
+      empty2.style.flexDirection = 'column';
+      empty2.style.justifyContent = 'center';
+      empty2.innerHTML = '<div class="big">Nothing left here</div><div class="small">No courses match the current filter.</div>';
+      degreeBodyEl.appendChild(empty2);
+    }
+  }
+
+  function renderDegreeAll(){
+    renderDegreeWarning();
+    if(!degreeState.loaded){
+      renderDegreeOverview(null);
+      renderDegreeBody(null);
+      return;
+    }
+    var analysis = analyzeDegreeAudit(degreeState.completed, degreeState.inProgress, degreeState.audit);
+    renderDegreeOverview(analysis);
+    renderDegreeBody(analysis);
+  }
+
+  loadDataBtn.addEventListener('click', async function(){ // <--- добавили async
+    if(degreeState.loaded) return;
+
+    try {
+      // Запрос к Python-бэкенду за данными из БД
+      const res = await fetch('/api/transcript');
+      const transcript = await res.json();
+
+      degreeState.completed = transcript.filter(function(c){ return c.status === 'completed'; });
+      degreeState.inProgress = transcript.filter(function(c){ return c.status === 'in-progress'; });
+      degreeState.audit = generateDegreeAudit();
+      
+      degreeState.loaded = true;
+      loadDataBtn.textContent = 'Data loaded ✓';
+      loadDataBtn.classList.add('loaded');
+      renderDegreeAll();
+    } catch (err) {
+      console.error("Ошибка загрузки данных транскрипта из БД:", err);
+    }
+  });
+
+  filterAllBtn.addEventListener('click', function(){
+    degreeState.filter = 'all';
+    filterAllBtn.classList.add('active');
+    filterMissingBtn.classList.remove('active');
+    renderDegreeAll();
+  });
+  filterMissingBtn.addEventListener('click', function(){
+    degreeState.filter = 'missing';
+    filterMissingBtn.classList.add('active');
+    filterAllBtn.classList.remove('active');
+    renderDegreeAll();
+  });
+
+  // init (does not call or touch any US1 function/state)
+  renderDegreeAll();
+})();
+</script>
+
+</body>
+</html>
