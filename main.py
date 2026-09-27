@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, Column, Integer, String, JSON, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 import os
 
@@ -58,8 +58,7 @@ class CourseSchema(BaseModel):
     lectures: List[dict]
     practices: List[dict]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True) 
 
 class TranscriptSchema(BaseModel):
     code: str
@@ -67,8 +66,7 @@ class TranscriptSchema(BaseModel):
     credits: int
     status: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==========================================
@@ -120,13 +118,31 @@ def get_transcript(db: Session = Depends(get_db)):
     return items
 
 
+
+# Находим папку, в которой лежит сам файл main.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PUBLIC_DIR = os.path.join(BASE_DIR, "public")
+
+
 # ==========================================
 # 4. РАЗДАЧА СТАТИКИ (HTML-файла)
 # ==========================================
-if os.path.exists("public"):
-    app.mount("/static", StaticFiles(directory="public"), name="static")
+if os.path.exists(PUBLIC_DIR):
+    app.mount("/static", StaticFiles(directory=PUBLIC_DIR), name="static")
 
 @app.get("/")
 def read_index():
-    """Отдает страницу сайта при переходе на http://127.0.0.1:8000/"""
-    return FileResponse("public/schedule-builder.html")
+    """Отдает страницу сайта при переходе на http://127.0.0"""
+    html_path = os.path.join(PUBLIC_DIR, "schedule-builder.html")
+    if not os.path.exists(html_path):
+        return {"error": f"Файл не найден по пути: {html_path}. Проверьте, что папка public лежит внутри Schedule-builder!"}
+    return FileResponse(html_path)
+
+
+
+# ==========================================
+# 5. ЗАПУСК СЕРВЕРА
+# ==========================================
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
