@@ -1,4 +1,4 @@
-x<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -102,6 +102,14 @@ x<!DOCTYPE html>
     padding:14px 14px 16px;
     margin-bottom:14px;
   }
+  .course-card.has-prerequisite-error{
+    border-color:var(--danger);
+    box-shadow:0 0 0 2px rgba(209,73,91,.12);
+  }
+  .course-card.has-prerequisite-error .course-code-input{
+    border-color:var(--danger);
+    background:#FFF7F8;
+  }
   .course-card-head{
     display:flex;
     align-items:center;
@@ -123,6 +131,50 @@ x<!DOCTYPE html>
     min-width:0;
   }
   .course-name-input:focus{outline:none; border-bottom:1px solid var(--accent);}
+  .course-code-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:-2px 0 10px 19px;
+  }
+  .course-code-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px;
+    font-weight:700;
+    color:var(--ink-soft);
+    letter-spacing:.04em;
+  }
+  .course-code-input{
+    flex:1;
+    min-width:0;
+    border:1px solid var(--paper-line);
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:var(--radius-s);
+    padding:6px 8px;
+    font:600 11px 'IBM Plex Mono', monospace;
+    text-transform:uppercase;
+    outline:none;
+  }
+  .course-code-input:focus{border-color:var(--accent); box-shadow:0 0 0 2px rgba(232,163,61,.14);}
+  .prerequisite-check{
+    display:none;
+    margin:0 0 11px 19px;
+    border-radius:var(--radius-s);
+    padding:8px 9px;
+    font-size:11px;
+    line-height:1.45;
+  }
+  .prerequisite-check.visible{display:block;}
+  .prerequisite-check.warning{
+    background:var(--danger);
+    color:#fff;
+    border-left:4px solid #8E2636;
+    font-weight:700;
+    box-shadow:0 4px 12px rgba(209,73,91,.18);
+  }
+  .prerequisite-check.ok{background:#E5F4EF; color:#245D52; border-left:3px solid #5FB3B3;}
+  .prerequisite-check.info{background:#F7EDD8; color:#6D4A15; border-left:3px solid var(--accent);}
   .icon-btn{
     border:none;
     background:transparent;
@@ -552,6 +604,77 @@ x<!DOCTYPE html>
     color:var(--accent-ink);
     cursor:default;
   }
+  .curriculum-upload{
+    background:#fff;
+    border:1px solid var(--paper-line);
+    border-radius:var(--radius-m);
+    padding:14px;
+    margin:0 0 14px;
+  }
+  .curriculum-upload-title{
+    font-family:'Fraunces', serif;
+    font-size:16px;
+    font-weight:600;
+    margin:0 0 5px;
+  }
+  .curriculum-upload-copy{
+    color:var(--ink-soft);
+    font-size:11.5px;
+    line-height:1.5;
+    margin:0 0 11px;
+  }
+  .curriculum-file-input{
+    position:absolute;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+    clip:rect(0 0 0 0);
+    white-space:nowrap;
+  }
+  .curriculum-file-btn{
+    display:block;
+    width:100%;
+    border:1px solid var(--ink);
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:var(--radius-m);
+    padding:10px 12px;
+    font-size:12.5px;
+    font-weight:700;
+    text-align:center;
+    cursor:pointer;
+  }
+  .curriculum-file-btn:hover{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+  .curriculum-file-input:focus + .curriculum-file-btn{outline:3px solid rgba(232,163,61,.35);}
+  .curriculum-template-link{
+    display:inline-block;
+    margin-top:9px;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    text-underline-offset:3px;
+  }
+  .curriculum-status{
+    display:none;
+    border-radius:var(--radius-s);
+    padding:9px 10px;
+    margin-top:10px;
+    font-size:11px;
+    line-height:1.45;
+  }
+  .curriculum-status.visible{display:block;}
+  .curriculum-status.success{background:#E5F4EF; color:#245D52;}
+  .curriculum-status.error{background:#FCE8EB; color:#972C3D;}
+  .curriculum-status.loading{display:block; background:#F7EDD8; color:#6D4A15;}
+  .curriculum-meta{display:none; margin-bottom:14px;}
+  .curriculum-meta.visible{display:block;}
+  .curriculum-meta .v{font-size:17px; overflow-wrap:anywhere;}
+  .curriculum-meta-detail{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    color:var(--ink-soft);
+    margin:6px 0 0;
+  }
   .degree-warning{
     font-family:'IBM Plex Mono', monospace;
     font-size:11.5px;
@@ -625,16 +748,45 @@ x<!DOCTYPE html>
     padding:10px 14px;
     margin-bottom:8px;
   }
+  .req-row.blocked{
+    border-color:var(--danger);
+    background:linear-gradient(90deg, rgba(209,73,91,.20), rgba(209,73,91,.07));
+    box-shadow:inset 4px 0 0 var(--danger), 0 0 0 1px rgba(209,73,91,.10);
+  }
+  .req-row.blocked .req-name{color:#FFB0BA;}
   .req-status-dot{width:9px;height:9px;border-radius:50%;flex:none;}
   .req-status-dot.done{background:#8BD3C7;}
   .req-status-dot.in-progress{background:var(--accent);}
   .req-status-dot.missing{background:var(--danger);}
-  .req-name{font-weight:600; flex:1;}
+  .req-status-dot.available{background:#A9DC76;}
+  .req-status-dot.planned{background:#9BA0C4;}
+  .req-status-dot.elective{background:#7FB2E5;}
+  .req-status-dot.requisite{background:#C792EA;}
+  .req-status-dot.blocked{background:#FF5F73; box-shadow:0 0 0 4px rgba(209,73,91,.18);}
+  .req-course-copy{flex:1; min-width:0;}
+  .req-name{display:block; font-weight:600;}
   .req-name.done{color:var(--board-text-soft); text-decoration:line-through; text-decoration-color:var(--board-line);}
+  .req-prereqs,
+  .req-equivalents,
+  .req-progress-detail,
+  .req-slots{
+    display:block;
+    margin-top:4px;
+    color:var(--board-text-soft);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    line-height:1.45;
+  }
+  .req-prereqs.blocked{
+    color:#FF9EAA;
+    font-size:10.5px;
+    font-weight:700;
+  }
   .req-credits{
     font-family:'IBM Plex Mono', monospace;
     font-size:11px;
     color:var(--board-text-soft);
+    flex:none;
   }
   .req-badge{
     font-family:'IBM Plex Mono', monospace;
@@ -644,17 +796,335 @@ x<!DOCTYPE html>
     text-transform:uppercase;
     padding:3px 8px;
     border-radius:20px;
+    white-space:nowrap;
+    flex:none;
   }
   .req-badge.done{background:rgba(139,211,199,0.18); color:#8BD3C7;}
   .req-badge.in-progress{background:rgba(232,163,61,0.18); color:var(--accent);}
   .req-badge.missing{background:rgba(209,73,91,0.18); color:#E9808F;}
+  .req-badge.available{background:rgba(169,220,118,0.18); color:#BCE78F;}
+  .req-badge.planned{background:rgba(155,160,196,0.18); color:#B9BEDD;}
+  .req-badge.elective{background:rgba(127,178,229,0.18); color:#9BC6F0;}
+  .req-badge.requisite{background:rgba(199,146,234,0.18); color:#D5AEF0;}
+  .req-badge.blocked{background:var(--danger); color:#fff; box-shadow:0 0 0 2px rgba(209,73,91,.16);}
+
+  /* ---------- Account and authentication ---------- */
+  .auth-pending .top-tabs,
+  .auth-pending .view-pane{visibility:hidden;}
+  .auth-locked{overflow:hidden;}
+  .auth-locked .top-tabs,
+  .auth-locked .view-pane{pointer-events:none; user-select:none; filter:blur(2px);}
+
+  .tabs-spacer{flex:1;}
+  .account-panel{
+    display:none;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+  }
+  .account-panel.visible{display:flex;}
+  .account-avatar{
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:none;
+    background:var(--accent);
+    color:var(--accent-ink);
+    font-family:'Fraunces', serif;
+    font-weight:700;
+  }
+  .account-copy{min-width:0; line-height:1.15;}
+  .account-name{
+    display:block;
+    max-width:180px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:var(--ink);
+    font-size:12px;
+    font-weight:700;
+  }
+  .account-email{
+    display:block;
+    max-width:180px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px;
+    margin-top:3px;
+  }
+  .logout-btn{
+    border:1px solid var(--paper-line);
+    background:#fff;
+    color:var(--ink-soft);
+    border-radius:var(--radius-m);
+    padding:7px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .logout-btn:hover{border-color:var(--danger); color:var(--danger);}
+
+  .auth-overlay{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    overflow-y:auto;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(232,163,61,.18), transparent 32%),
+      radial-gradient(circle at 85% 75%, rgba(95,179,179,.12), transparent 28%),
+      var(--board-bg);
+  }
+  .auth-overlay[hidden]{display:none;}
+  .auth-card{
+    width:min(100%, 430px);
+    background:var(--paper);
+    color:var(--ink);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;
+    padding:30px;
+    box-shadow:0 24px 70px rgba(0,0,0,.35);
+  }
+  .auth-brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:24px;
+  }
+  .auth-brand-mark{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    font-weight:700;
+    background:var(--accent);
+    color:var(--accent-ink);
+    padding:5px 8px;
+    border-radius:var(--radius-s);
+  }
+  .auth-brand-name{
+    font-family:'Fraunces', serif;
+    font-size:18px;
+    font-weight:600;
+  }
+  .auth-view{display:none;}
+  .auth-view.active{display:block;}
+  .auth-title{
+    font-family:'Fraunces', serif;
+    font-size:28px;
+    line-height:1.15;
+    margin:0 0 8px;
+  }
+  .auth-subtitle{
+    color:var(--ink-soft);
+    font-size:13.5px;
+    line-height:1.55;
+    margin:0 0 22px;
+  }
+  .auth-field{display:block; margin-bottom:14px;}
+  .auth-field-label{
+    display:block;
+    margin-bottom:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.04em;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+  }
+  .auth-input{
+    width:100%;
+    border:1px solid var(--paper-line);
+    background:#fff;
+    color:var(--ink);
+    border-radius:var(--radius-m);
+    padding:12px 13px;
+    font:500 14px 'Inter', sans-serif;
+    outline:none;
+  }
+  .auth-input:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(232,163,61,.16);}
+  .auth-hint{font-size:11px; color:var(--ink-soft); margin:-6px 0 14px;}
+  .auth-primary{
+    width:100%;
+    border:1px solid var(--accent);
+    border-radius:var(--radius-m);
+    background:var(--accent);
+    color:var(--accent-ink);
+    padding:12px 16px;
+    font:700 13px 'Inter', sans-serif;
+    cursor:pointer;
+    margin-top:2px;
+  }
+  .auth-primary:hover{filter:brightness(.97);}
+  .auth-primary:disabled{opacity:.58; cursor:wait;}
+  .auth-status{
+    display:none;
+    border-radius:var(--radius-s);
+    padding:10px 11px;
+    margin:0 0 14px;
+    font-size:12px;
+    line-height:1.45;
+  }
+  .auth-status.visible{display:block;}
+  .auth-status.error{background:#FCE8EB; color:#972C3D;}
+  .auth-status.success{background:#E5F4EF; color:#245D52;}
+  .auth-actions{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-top:18px;
+    color:var(--ink-soft);
+    font-size:12px;
+  }
+  .auth-link{
+    border:none;
+    background:transparent;
+    color:var(--ink);
+    font:700 12px 'Inter', sans-serif;
+    padding:0;
+    cursor:pointer;
+    text-decoration:underline;
+    text-decoration-color:var(--accent);
+    text-underline-offset:3px;
+  }
+  .auth-link:hover{color:#9A5A00;}
+  .auth-loading{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:190px;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+  }
+  @media (max-width:640px){
+    .auth-overlay{padding:12px; align-items:flex-start;}
+    .auth-card{padding:24px 20px; margin:20px 0;}
+    .top-tabs{padding:8px 10px; flex-wrap:wrap;}
+    .top-tab-btn{padding:7px 9px; font-size:10px;}
+    .account-panel{width:100%; border-top:1px solid var(--paper-line); padding-top:8px;}
+    .account-copy{flex:1;}
+  }
 </style>
 </head>
-<body>
+<body class="auth-pending auth-locked">
+
+<div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="auth-brand-mark">SB</span>
+      <span class="auth-brand-name">Schedule Builder</span>
+    </div>
+
+    <div class="auth-view active" id="authLoadingView">
+      <div class="auth-loading">Проверяем сессию…</div>
+    </div>
+
+    <form class="auth-view" id="loginForm" data-view="login" novalidate>
+      <h2 class="auth-title" id="authTitle">С возвращением</h2>
+      <p class="auth-subtitle">Войдите, чтобы продолжить работу со своим расписанием.</p>
+      <div class="auth-status" data-auth-status></div>
+      <label class="auth-field">
+        <span class="auth-field-label">Электронная почта</span>
+        <input class="auth-input" id="loginEmail" type="email" autocomplete="email" placeholder="name@example.com" required>
+      </label>
+      <label class="auth-field">
+        <span class="auth-field-label">Пароль</span>
+        <input class="auth-input" id="loginPassword" type="password" autocomplete="current-password" placeholder="Ваш пароль" required>
+      </label>
+      <button class="auth-primary" type="submit">Войти</button>
+      <div class="auth-actions">
+        <button class="auth-link" type="button" data-auth-view="forgot">Забыли пароль?</button>
+        <span>Нет аккаунта? <button class="auth-link" type="button" data-auth-view="register">Регистрация</button></span>
+      </div>
+    </form>
+
+    <form class="auth-view" id="registerForm" data-view="register" novalidate>
+      <h2 class="auth-title">Создать аккаунт</h2>
+      <p class="auth-subtitle">Ваши варианты расписания будут доступны после входа с любого устройства.</p>
+      <div class="auth-status" data-auth-status></div>
+      <label class="auth-field">
+        <span class="auth-field-label">Имя</span>
+        <input class="auth-input" id="registerName" type="text" autocomplete="name" maxlength="80" placeholder="Как к вам обращаться" required>
+      </label>
+      <label class="auth-field">
+        <span class="auth-field-label">Электронная почта</span>
+        <input class="auth-input" id="registerEmail" type="email" autocomplete="email" placeholder="name@example.com" required>
+      </label>
+      <label class="auth-field">
+        <span class="auth-field-label">Пароль</span>
+        <input class="auth-input" id="registerPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Не менее 8 символов" required>
+      </label>
+      <label class="auth-field">
+        <span class="auth-field-label">Повторите пароль</span>
+        <input class="auth-input" id="registerPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Ещё раз тот же пароль" required>
+      </label>
+      <p class="auth-hint">Используйте уникальный пароль длиной не менее 8 символов.</p>
+      <button class="auth-primary" type="submit">Зарегистрироваться</button>
+      <div class="auth-actions">
+        <span>Уже есть аккаунт?</span>
+        <button class="auth-link" type="button" data-auth-view="login">Войти</button>
+      </div>
+    </form>
+
+    <form class="auth-view" id="forgotForm" data-view="forgot" novalidate>
+      <h2 class="auth-title">Восстановить пароль</h2>
+      <p class="auth-subtitle">Укажите почту аккаунта. Мы отправим ссылку, которая действует 30 минут.</p>
+      <div class="auth-status" data-auth-status></div>
+      <label class="auth-field">
+        <span class="auth-field-label">Электронная почта</span>
+        <input class="auth-input" id="forgotEmail" type="email" autocomplete="email" placeholder="name@example.com" required>
+      </label>
+      <button class="auth-primary" type="submit">Отправить ссылку</button>
+      <div class="auth-actions">
+        <span>Вспомнили пароль?</span>
+        <button class="auth-link" type="button" data-auth-view="login">Вернуться ко входу</button>
+      </div>
+    </form>
+
+    <form class="auth-view" id="resetForm" data-view="reset" novalidate>
+      <h2 class="auth-title">Новый пароль</h2>
+      <p class="auth-subtitle">Придумайте новый пароль для своего аккаунта.</p>
+      <div class="auth-status" data-auth-status></div>
+      <input id="resetToken" type="hidden">
+      <label class="auth-field">
+        <span class="auth-field-label">Новый пароль</span>
+        <input class="auth-input" id="resetPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Не менее 8 символов" required>
+      </label>
+      <label class="auth-field">
+        <span class="auth-field-label">Повторите пароль</span>
+        <input class="auth-input" id="resetPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Ещё раз тот же пароль" required>
+      </label>
+      <button class="auth-primary" type="submit">Сохранить новый пароль</button>
+      <div class="auth-actions">
+        <span>Ссылка не работает?</span>
+        <button class="auth-link" type="button" data-auth-view="forgot">Запросить новую</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="top-tabs">
   <button class="top-tab-btn active" id="tabScheduleBtn" type="button">01 · Schedule Builder</button>
   <button class="top-tab-btn" id="tabDegreeBtn" type="button">02 · Degree Progress</button>
+  <span class="tabs-spacer"></span>
+  <div class="account-panel" id="accountPanel">
+    <span class="account-avatar" id="accountAvatar"></span>
+    <span class="account-copy">
+      <span class="account-name" id="accountName"></span>
+      <span class="account-email" id="accountEmail"></span>
+    </span>
+    <button class="logout-btn" id="logoutBtn" type="button">Выйти</button>
+  </div>
 </div>
 
 <!-- ============ VIEW 1: US1 — Schedule Builder (untouched) ============ -->
@@ -669,6 +1139,7 @@ x<!DOCTYPE html>
 
     <p class="section-label">YOUR COURSES</p>
     <div id="courseList"></div>
+    <datalist id="curriculumCourseOptions"></datalist>
     <button class="add-course-btn" id="addCourseBtn">+ Add a course</button>
 
     <button class="generate-btn" id="generateBtn">Generate schedules</button>
@@ -703,9 +1174,24 @@ x<!DOCTYPE html>
   <div class="degree-sidebar">
     <div class="brand"><span class="mark">02</span></div>
     <h1 class="title">Degree Progress</h1>
-    <p class="subtitle">Load your transcript and degree audit to see exactly which required courses you still need for graduation.</p>
+    <p class="subtitle">Загрузите свой учебный план и посмотрите, какие обязательные дисциплины ещё остались.</p>
 
-    <button class="load-btn" id="loadDataBtn">Load transcript + degree audit</button>
+    <div class="curriculum-upload">
+      <p class="curriculum-upload-title">Мой учебный план</p>
+      <p class="curriculum-upload-copy">CSV: колонки category, code, name, credits. Также поддерживается JSON.</p>
+      <input class="curriculum-file-input" id="curriculumFileInput" type="file" accept=".csv,.json,text/csv,application/json">
+      <label class="curriculum-file-btn" for="curriculumFileInput">Выбрать CSV или JSON</label>
+      <a class="curriculum-template-link" href="/static/curriculum-template.csv" download>Скачать пример CSV</a>
+      <div class="curriculum-status" id="curriculumStatus" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="data-card curriculum-meta" id="curriculumMeta">
+      <p class="k">ТЕКУЩИЙ УЧЕБНЫЙ ПЛАН</p>
+      <p class="v" id="curriculumNameEl"></p>
+      <p class="curriculum-meta-detail" id="curriculumDetailEl"></p>
+    </div>
+
+    <button class="load-btn" id="loadDataBtn">Загрузить данные прогресса</button>
     <div id="degreeWarning"></div>
 
     <p class="section-label">OVERVIEW</p>
@@ -748,6 +1234,191 @@ x<!DOCTYPE html>
 (function(){
   "use strict";
 
+  var overlay = document.getElementById('authOverlay');
+  var accountPanel = document.getElementById('accountPanel');
+  var accountAvatar = document.getElementById('accountAvatar');
+  var accountName = document.getElementById('accountName');
+  var accountEmail = document.getElementById('accountEmail');
+  var loginForm = document.getElementById('loginForm');
+  var registerForm = document.getElementById('registerForm');
+  var forgotForm = document.getElementById('forgotForm');
+  var resetForm = document.getElementById('resetForm');
+
+  function errorMessage(data, fallback){
+    if(!data) return fallback;
+    if(typeof data.detail === 'string') return data.detail;
+    if(Array.isArray(data.detail) && data.detail.length){
+      return data.detail[0].msg || fallback;
+    }
+    return data.message || fallback;
+  }
+
+  async function api(url, options){
+    var response = await fetch(url, Object.assign({credentials:'same-origin'}, options || {}));
+    if(response.status === 204) return null;
+    var data = null;
+    try { data = await response.json(); } catch (_err) { /* no JSON body */ }
+    if(!response.ok) throw new Error(errorMessage(data, 'Не удалось выполнить запрос. Попробуйте ещё раз.'));
+    return data;
+  }
+
+  function clearStatuses(){
+    document.querySelectorAll('[data-auth-status]').forEach(function(el){
+      el.textContent = '';
+      el.className = 'auth-status';
+    });
+  }
+
+  function setStatus(form, message, type){
+    var el = form.querySelector('[data-auth-status]');
+    el.textContent = message;
+    el.className = 'auth-status visible ' + (type || 'error');
+  }
+
+  function switchView(name){
+    clearStatuses();
+    document.querySelectorAll('.auth-view').forEach(function(view){ view.classList.remove('active'); });
+    var next = document.querySelector('.auth-view[data-view="' + name + '"]');
+    if(next) next.classList.add('active');
+    var focusTarget = next && next.querySelector('.auth-input');
+    if(focusTarget) setTimeout(function(){ focusTarget.focus(); }, 0);
+  }
+
+  function setAuthenticated(user){
+    document.body.classList.remove('auth-pending', 'auth-locked');
+    overlay.hidden = true;
+    window.scheduleCurrentUser = user;
+    accountPanel.classList.add('visible');
+    accountAvatar.textContent = (user.name || user.email || '?').trim().charAt(0).toUpperCase();
+    accountName.textContent = user.name;
+    accountEmail.textContent = user.email;
+    window.dispatchEvent(new CustomEvent('auth:ready', {detail:{user:user}}));
+  }
+
+  function setUnauthenticated(view){
+    document.body.classList.remove('auth-pending');
+    document.body.classList.add('auth-locked');
+    window.scheduleCurrentUser = null;
+    overlay.hidden = false;
+    accountPanel.classList.remove('visible');
+    switchView(view || 'login');
+  }
+
+  function withBusy(form, callback){
+    return async function(event){
+      event.preventDefault();
+      if(!form.reportValidity()) return;
+      var button = form.querySelector('button[type="submit"]');
+      button.disabled = true;
+      clearStatuses();
+      try { await callback(); }
+      catch (err) { setStatus(form, err.message, 'error'); }
+      finally { button.disabled = false; }
+    };
+  }
+
+  document.querySelectorAll('[data-auth-view]').forEach(function(button){
+    button.addEventListener('click', function(){ switchView(button.dataset.authView); });
+  });
+
+  loginForm.addEventListener('submit', withBusy(loginForm, async function(){
+    var data = await api('/api/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        email:document.getElementById('loginEmail').value,
+        password:document.getElementById('loginPassword').value
+      })
+    });
+    loginForm.reset();
+    setAuthenticated(data.user);
+  }));
+
+  registerForm.addEventListener('submit', withBusy(registerForm, async function(){
+    var password = document.getElementById('registerPassword').value;
+    var confirmation = document.getElementById('registerPasswordConfirm').value;
+    if(password !== confirmation) throw new Error('Пароли не совпадают.');
+    var data = await api('/api/auth/register', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        name:document.getElementById('registerName').value,
+        email:document.getElementById('registerEmail').value,
+        password:password
+      })
+    });
+    registerForm.reset();
+    setAuthenticated(data.user);
+  }));
+
+  forgotForm.addEventListener('submit', withBusy(forgotForm, async function(){
+    var email = document.getElementById('forgotEmail').value;
+    var data = await api('/api/auth/forgot-password', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email})
+    });
+    if(data.development_reset_token){
+      document.getElementById('resetToken').value = data.development_reset_token;
+      switchView('reset');
+      setStatus(resetForm, data.message, 'success');
+      return;
+    }
+    setStatus(forgotForm, data.message, 'success');
+  }));
+
+  resetForm.addEventListener('submit', withBusy(resetForm, async function(){
+    var password = document.getElementById('resetPassword').value;
+    var confirmation = document.getElementById('resetPasswordConfirm').value;
+    if(password !== confirmation) throw new Error('Пароли не совпадают.');
+    var data = await api('/api/auth/reset-password', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        token:document.getElementById('resetToken').value,
+        password:password
+      })
+    });
+    resetForm.reset();
+    switchView('login');
+    setStatus(loginForm, data.message, 'success');
+  }));
+
+  document.getElementById('logoutBtn').addEventListener('click', async function(){
+    try { await api('/api/auth/logout', {method:'POST'}); }
+    catch (_err) { /* A reload below also handles an already expired session. */ }
+    window.location.reload();
+  });
+
+  async function bootstrapAuth(){
+    var resetPrefix = '#reset-token=';
+    if(window.location.hash.indexOf(resetPrefix) === 0){
+      try {
+        document.getElementById('resetToken').value = decodeURIComponent(window.location.hash.slice(resetPrefix.length));
+      } catch (_err) {
+        document.getElementById('resetToken').value = '';
+      }
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      setUnauthenticated('reset');
+      return;
+    }
+
+    try {
+      var data = await api('/api/auth/me');
+      setAuthenticated(data.user);
+    } catch (_err) {
+      setUnauthenticated('login');
+    }
+  }
+
+  bootstrapAuth();
+})();
+</script>
+
+<script>
+(function(){
+  "use strict";
+
   var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var DAY_ABBR = {Mon:'M', Tue:'T', Wed:'W', Thu:'Th', Fri:'F', Sat:'Sa', Sun:'Su'};
   var PALETTE = ['#F2C14E','#5FB3B3','#E8734A','#8BD3C7','#C792EA','#7FB2E5','#F28FAD','#A9DC76','#F0A6CA','#87C4F0'];
@@ -757,7 +1428,9 @@ x<!DOCTYPE html>
 
   function mkMeeting(days, start, end){ return {id: uid(), days: days.slice(), start: start, end: end}; }
   function mkSlot(label, meetings){ return {id: uid(), label: label, meetings: meetings}; }
-  function mkCourse(name, color, lectures, practices){ return {id: uid(), name: name, color: color, lectures: lectures, practices: practices || []}; }
+  function mkCourse(name, color, lectures, practices, code){
+    return {id:uid(), code:code || '', name:name, color:color, lectures:lectures, practices:practices || []};
+  }
 
   var state = {
     courses: [
@@ -794,6 +1467,72 @@ x<!DOCTYPE html>
     truncated: false,
     combosChecked: 0
   };
+  var defaultCoursesSnapshot = JSON.stringify(state.courses);
+  var curriculumCatalog = [];
+  var curriculumByCode = Object.create(null);
+  var curriculumByName = Object.create(null);
+  var curriculumLoaded = false;
+
+  function normalizeCourseCode(value){
+    return String(value || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  }
+
+  function curriculumCourseFor(course){
+    var code = normalizeCourseCode(course.code);
+    if(code && curriculumByCode[code]) return curriculumByCode[code];
+    var name = String(course.name || '').trim().toLowerCase();
+    return name ? curriculumByName[name] || null : null;
+  }
+
+  function curriculumCourseCompleted(course){
+    if(!course) return false;
+    return course.completed === true || String(course.completion_status || '').toLowerCase() === 'completed';
+  }
+
+  function curriculumStatusLabel(course){
+    if(!course) return 'статус неизвестен';
+    var status = String(course.completion_status || '').toLowerCase();
+    if(status === 'in_progress' || course.in_progress === true) return 'сейчас изучается';
+    if(status === 'available') return 'доступен, но не пройден';
+    if(status === 'planned') return 'запланирован';
+    if(status === 'not_selected') return 'не выбран';
+    if(status === 'not_tracked_in_curriculum') return 'не отслеживается';
+    return 'не пройден';
+  }
+
+  function prerequisiteCheckFor(course){
+    if(!curriculumLoaded){
+      return course.code ? {type:'info', message:'Загрузите куррикулум, чтобы проверить пререквизиты.'} : null;
+    }
+    var selected = curriculumCourseFor(course);
+    if(!selected){
+      return course.code ? {type:'info', message:'Курс с таким кодом не найден в загруженном куррикулуме.'} : null;
+    }
+    var prerequisites = Array.isArray(selected.prerequisites) ? selected.prerequisites : [];
+    if(!prerequisites.length) return null;
+
+    var missing = prerequisites.filter(function(prerequisite){
+      return !curriculumCourseCompleted(curriculumByCode[normalizeCourseCode(prerequisite.code)]);
+    });
+    if(!missing.length){
+      return {type:'ok', message:'Все пререквизиты выполнены.'};
+    }
+    var inferred = missing.some(function(prerequisite){ return prerequisite.official === false; });
+    var prerequisiteWord = missing.length === 1 ? 'этого пререквизита' : 'этих пререквизитов';
+    return {
+      type:'warning',
+      message:'⛔ КУРС НЕДОСТУПЕН. Сначала завершите: '
+        + missing.map(function(prerequisite){
+          var prerequisiteCourse = curriculumByCode[normalizeCourseCode(prerequisite.code)];
+          var label = [prerequisite.code, prerequisite.name].filter(Boolean).join(' — ') || 'Неизвестный курс';
+          return label + ' (' + curriculumStatusLabel(prerequisiteCourse) + ')';
+        }).join('; ')
+        + '. Без выполнения ' + prerequisiteWord + ' выбрать курс нельзя.'
+        + (inferred ? ' Связь отмечена в файле как предполагаемая.' : ''),
+      blocking:true,
+      missing:missing
+    };
+  }
 
   function nextColor(){
     return PALETTE[(state.courses.length) % PALETTE.length];
@@ -816,6 +1555,44 @@ x<!DOCTYPE html>
   // SIDEBAR RENDERING
   // ============================================================
   var courseListEl = document.getElementById('courseList');
+  var curriculumCourseOptionsEl = document.getElementById('curriculumCourseOptions');
+
+  function setCurriculumCatalog(curriculum){
+    curriculumCatalog = [];
+    curriculumByCode = Object.create(null);
+    curriculumByName = Object.create(null);
+    curriculumLoaded = Boolean(curriculum);
+    curriculumCourseOptionsEl.innerHTML = '';
+    if(!curriculum || !Array.isArray(curriculum.categories)){
+      renderSidebar();
+      return;
+    }
+    curriculum.categories.forEach(function(category){
+      (category.required || []).forEach(function(course){
+        curriculumCatalog.push(course);
+        curriculumByCode[normalizeCourseCode(course.code)] = course;
+        curriculumByName[String(course.name || '').trim().toLowerCase()] = course;
+      });
+    });
+    curriculumCatalog.forEach(function(course){
+      var option = document.createElement('option');
+      option.value = course.code;
+      option.label = course.name + (course.semester ? ' · семестр ' + course.semester : '');
+      curriculumCourseOptionsEl.appendChild(option);
+    });
+    renderSidebar();
+  }
+
+  async function loadCurriculumForPrerequisites(){
+    try {
+      var response = await fetch('/api/curriculum', {credentials:'same-origin'});
+      if(!response.ok) return;
+      var data = await response.json();
+      setCurriculumCatalog(data.curriculum || null);
+    } catch (err) {
+      console.error('Не удалось загрузить куррикулум для проверки пререквизитов:', err);
+    }
+  }
 
   function renderSidebar(){
     courseListEl.innerHTML = '';
@@ -825,6 +1602,8 @@ x<!DOCTYPE html>
   }
 
   function renderCourseCard(course){
+    var initialCatalogMatch = curriculumCourseFor(course);
+    if(initialCatalogMatch && !course.code) course.code = initialCatalogMatch.code;
     var card = document.createElement('div');
     card.className = 'course-card';
 
@@ -839,7 +1618,17 @@ x<!DOCTYPE html>
     nameInput.className = 'course-name-input';
     nameInput.value = course.name;
     nameInput.placeholder = 'Course name';
-    nameInput.addEventListener('input', function(){ course.name = nameInput.value; });
+    nameInput.addEventListener('input', function(){
+      course.name = nameInput.value;
+      if(!course.code){
+        var matchByName = curriculumByName[String(course.name || '').trim().toLowerCase()];
+        if(matchByName){
+          course.code = matchByName.code;
+          codeInput.value = matchByName.code;
+        }
+      }
+      updatePrerequisiteCheck();
+    });
 
     var removeBtn = document.createElement('button');
     removeBtn.className = 'icon-btn';
@@ -854,6 +1643,48 @@ x<!DOCTYPE html>
     head.appendChild(nameInput);
     head.appendChild(removeBtn);
     card.appendChild(head);
+
+    var codeRow = document.createElement('div');
+    codeRow.className = 'course-code-row';
+    var codeLabel = document.createElement('span');
+    codeLabel.className = 'course-code-label';
+    codeLabel.textContent = 'КОД';
+    var codeInput = document.createElement('input');
+    codeInput.className = 'course-code-input';
+    codeInput.setAttribute('list', 'curriculumCourseOptions');
+    codeInput.value = course.code || '';
+    codeInput.placeholder = 'Например, CSS 215';
+    codeInput.setAttribute('aria-label', 'Код дисциплины');
+    codeRow.appendChild(codeLabel);
+    codeRow.appendChild(codeInput);
+    card.appendChild(codeRow);
+
+    var prerequisiteBox = document.createElement('div');
+    prerequisiteBox.setAttribute('role', 'status');
+    prerequisiteBox.setAttribute('aria-live', 'polite');
+    card.appendChild(prerequisiteBox);
+
+    function updatePrerequisiteCheck(){
+      var check = prerequisiteCheckFor(course);
+      var hasError = Boolean(check && check.type === 'warning');
+      prerequisiteBox.textContent = check ? check.message : '';
+      prerequisiteBox.className = 'prerequisite-check' + (check ? ' visible ' + check.type : '');
+      card.classList.toggle('has-prerequisite-error', hasError);
+      codeInput.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+    }
+
+    codeInput.addEventListener('input', function(){
+      course.code = normalizeCourseCode(codeInput.value);
+      var matchedCourse = curriculumByCode[course.code];
+      if(matchedCourse){
+        course.code = matchedCourse.code;
+        course.name = matchedCourse.name;
+        codeInput.value = matchedCourse.code;
+        nameInput.value = matchedCourse.name;
+      }
+      updatePrerequisiteCheck();
+    });
+    updatePrerequisiteCheck();
 
     card.appendChild(renderSlotGroup(course, 'lecture', 'Lectures', course.lectures, function(){
       course.lectures.push(mkSlot('Lecture ' + (course.lectures.length+1), [ mkMeeting(['Mon'], '09:00', '09:50') ]));
@@ -1113,6 +1944,20 @@ x<!DOCTYPE html>
   document.getElementById('generateBtn').addEventListener('click', async function(){ // <--- добавили async
     statusLine.className = 'status-line';
     statusLine.textContent = '';
+
+    var prerequisiteProblems = state.courses.map(function(course){
+      return {course:course, check:prerequisiteCheckFor(course)};
+    }).filter(function(item){
+      return item.check && item.check.type === 'warning' && item.check.blocking;
+    });
+    if(prerequisiteProblems.length){
+      statusLine.className = 'status-line error';
+      statusLine.textContent = 'Генерация заблокирована. Нельзя выбрать '
+        + prerequisiteProblems.map(function(item){
+          return item.course.code || item.course.name || 'выбранного курса';
+        }).join(', ') + ', пока не выполнены указанные пререквизиты.';
+      return;
+    }
 
     // === ВСТАВИТЬ ЭТОТ БЛОК (Сохранение в базу данных Python) ===
     try {
@@ -1408,15 +2253,31 @@ x<!DOCTYPE html>
   async function loadCoursesFromBackend() {
     try {
       const res = await fetch('/api/courses');
+      if (!res.ok) return;
       const data = await res.json();
       if (data && data.length > 0) {
         state.courses = data;
-        renderSidebar();
+      } else {
+        state.courses = JSON.parse(defaultCoursesSnapshot);
       }
+      state.results = [];
+      state.currentIndex = 0;
+      state.searched = false;
+      state.truncated = false;
+      state.combosChecked = 0;
+      renderSidebar();
+      renderBoard();
     } catch (err) {
       console.error("Ошибка загрузки с бэкенда:", err);
     }
   }
+  window.addEventListener('auth:ready', loadCoursesFromBackend);
+  window.addEventListener('auth:ready', loadCurriculumForPrerequisites);
+  window.addEventListener('curriculum:updated', function(event){
+    setCurriculumCatalog(event.detail && event.detail.curriculum || null);
+  });
+  if(window.scheduleCurrentUser) loadCoursesFromBackend();
+  if(window.scheduleCurrentUser) loadCurriculumForPrerequisites();
   // ============================
 
   // init
@@ -1570,45 +2431,134 @@ x<!DOCTYPE html>
     completed: [],
     inProgress: [],
     audit: [],
+    curriculumName: '',
+    progress: null,
     filter: 'all' // 'all' | 'missing'
   };
 
   // ---------- Comparison logic ----------
   function analyzeDegreeAudit(completed, inProgress, audit){
     var completedCodes = {};
-    completed.forEach(function(c){ completedCodes[c.code] = true; });
+    completed.forEach(function(c){ completedCodes[String(c.code).trim().toUpperCase()] = true; });
     var inProgressCodes = {};
-    inProgress.forEach(function(c){ inProgressCodes[c.code] = true; });
+    inProgress.forEach(function(c){ inProgressCodes[String(c.code).trim().toUpperCase()] = true; });
+    var auditByCode = Object.create(null);
+    audit.forEach(function(category){
+      (category.required || []).forEach(function(course){
+        auditByCode[String(course.code || '').trim().toUpperCase()] = course;
+      });
+    });
+
+    function auditCourseCompleted(code){
+      var normalized = String(code || '').trim().toUpperCase();
+      if(completedCodes[normalized]) return true;
+      var course = auditByCode[normalized];
+      return Boolean(course && (
+        course.completed === true
+        || String(course.completion_status || '').trim().toLowerCase() === 'completed'
+      ));
+    }
 
     var categories = audit.map(function(cat){
       var rows = cat.required.map(function(req){
-        var status = completedCodes[req.code] ? 'done'
-          : inProgressCodes[req.code] ? 'in-progress'
+        var kind = req.kind || 'required';
+        var normalizedCode = String(req.code).trim().toUpperCase();
+        var savedStatus = String(req.completion_status || '').trim().toLowerCase().replace('-', '_');
+        if(req.completed === true) savedStatus = 'completed';
+        else if(req.in_progress === true) savedStatus = 'in_progress';
+        var status = savedStatus === 'completed' ? 'done'
+          : savedStatus === 'in_progress' ? 'in-progress'
+          : savedStatus === 'available' ? 'available'
+          : savedStatus === 'planned' ? 'planned'
+          : savedStatus === 'not_selected' ? 'elective'
+          : savedStatus === 'not_tracked_in_curriculum' ? 'requisite'
+          : completedCodes[normalizedCode] ? 'done'
+          : inProgressCodes[normalizedCode] ? 'in-progress'
+          : kind === 'elective' ? 'elective'
+          : kind === 'requisite' ? 'requisite'
           : 'missing';
+        var prerequisites = Array.isArray(req.prerequisites) ? req.prerequisites : [];
+        var missingPrerequisites = prerequisites.filter(function(prerequisite){
+          return !auditCourseCompleted(prerequisite.code);
+        }).map(function(prerequisite){
+          var prerequisiteCourse = auditByCode[String(prerequisite.code || '').trim().toUpperCase()];
+          return {
+            code:prerequisite.code || '',
+            name:prerequisite.name || prerequisiteCourse && prerequisiteCourse.name || '',
+            completionStatus:prerequisiteCourse
+              ? String(prerequisiteCourse.completion_status || '').trim().toLowerCase()
+              : 'unknown',
+            inProgress:Boolean(prerequisiteCourse && prerequisiteCourse.in_progress === true)
+          };
+        });
+        var prerequisiteBlocked = missingPrerequisites.length > 0
+          && status !== 'done'
+          && status !== 'in-progress';
         return {
           code: req.code,
           name: req.name,
           credits: req.credits,
-          status: status
+          status: status,
+          kind: kind,
+          semester: req.semester || null,
+          prerequisites: prerequisites,
+          missingPrerequisites: missingPrerequisites,
+          prerequisiteBlocked: prerequisiteBlocked,
+          equivalents: Array.isArray(req.equivalents) ? req.equivalents : [],
+          eligibleSlots: Array.isArray(req.eligible_slots) ? req.eligible_slots : [],
+          electiveType: req.elective_type || null,
+          grade: req.grade || null,
+          completionStatus: savedStatus || null,
+          systemStatus: req.system_status || null,
+          selectedInCurriculum: req.selected_in_curriculum === true,
+          selectedSemester: req.selected_semester || null
         };
       });
-      var missingCount = rows.filter(function(r){ return r.status === 'missing'; }).length;
-      var inProgressCount = rows.filter(function(r){ return r.status === 'in-progress'; }).length;
-      return {category: cat.category, rows: rows, missingCount: missingCount, inProgressCount: inProgressCount};
+      var requiredRows = rows.filter(function(r){ return r.kind === 'required'; });
+      var missingCount = requiredRows.filter(function(r){
+        return r.status === 'missing' || r.status === 'available' || r.status === 'planned';
+      }).length;
+      var inProgressCount = requiredRows.filter(function(r){ return r.status === 'in-progress'; }).length;
+      var electiveCount = rows.filter(function(r){ return r.kind === 'elective'; }).length;
+      var selectedElectiveCount = rows.filter(function(r){
+        return r.kind === 'elective' && r.status !== 'elective';
+      }).length;
+      var completedElectiveCount = rows.filter(function(r){
+        return r.kind === 'elective' && r.status === 'done';
+      }).length;
+      var inProgressElectiveCount = rows.filter(function(r){
+        return r.kind === 'elective' && r.status === 'in-progress';
+      }).length;
+      var requisiteCount = rows.filter(function(r){ return r.kind === 'requisite'; }).length;
+      return {
+        category:cat.category,
+        rows:rows,
+        requiredCount:requiredRows.length,
+        missingCount:missingCount,
+        inProgressCount:inProgressCount,
+        electiveCount:electiveCount,
+        selectedElectiveCount:selectedElectiveCount,
+        completedElectiveCount:completedElectiveCount,
+        inProgressElectiveCount:inProgressElectiveCount,
+        requisiteCount:requisiteCount
+      };
     });
 
     var totalRequired = 0, totalMissing = 0, totalInProgress = 0;
     categories.forEach(function(cat){
-      totalRequired += cat.rows.length;
+      totalRequired += cat.requiredCount;
       totalMissing += cat.missingCount;
       totalInProgress += cat.inProgressCount;
     });
 
-    var completedCredits = completed.reduce(function(sum, c){ return sum + c.credits; }, 0);
-    var inProgressCredits = inProgress.reduce(function(sum, c){ return sum + c.credits; }, 0);
-    var requiredCredits = 0;
+    var completedCredits = 0, inProgressCredits = 0, requiredCredits = 0;
     categories.forEach(function(cat){
-      cat.rows.forEach(function(r){ requiredCredits += r.credits; });
+      cat.rows.forEach(function(r){
+        if(r.kind !== 'required') return;
+        requiredCredits += r.credits;
+        if(r.status === 'done') completedCredits += r.credits;
+        if(r.status === 'in-progress') inProgressCredits += r.credits;
+      });
     });
 
     return {
@@ -1634,6 +2584,11 @@ x<!DOCTYPE html>
   var degreeBodyEl = document.getElementById('degreeBody');
   var filterAllBtn = document.getElementById('filterAllBtn');
   var filterMissingBtn = document.getElementById('filterMissingBtn');
+  var curriculumFileInput = document.getElementById('curriculumFileInput');
+  var curriculumStatusEl = document.getElementById('curriculumStatus');
+  var curriculumMetaEl = document.getElementById('curriculumMeta');
+  var curriculumNameEl = document.getElementById('curriculumNameEl');
+  var curriculumDetailEl = document.getElementById('curriculumDetailEl');
 
   function escapeHtmlDegree(str){
     return String(str).replace(/[&<>"']/g, function(c){
@@ -1641,12 +2596,378 @@ x<!DOCTYPE html>
     });
   }
 
+  function degreePrerequisiteStatusLabel(prerequisite){
+    var status = prerequisite.inProgress ? 'in_progress' : prerequisite.completionStatus;
+    if(status === 'in_progress') return 'сейчас изучается, но ещё не завершён';
+    if(status === 'available') return 'доступен, но ещё не пройден';
+    if(status === 'planned') return 'только запланирован';
+    if(status === 'not_selected') return 'не выбран';
+    if(status === 'unknown') return 'нет подтверждения о прохождении';
+    return 'не пройден';
+  }
+
+  function curriculumCourseCount(categories){
+    return categories.reduce(function(total, category){
+      return total + category.required.length;
+    }, 0);
+  }
+
+  function curriculumCredits(categories){
+    return categories.reduce(function(total, category){
+      return total + category.required.reduce(function(sum, course){
+        return sum + ((course.kind || 'required') === 'required' ? Number(course.credits) : 0);
+      }, 0);
+    }, 0);
+  }
+
+  function setCurriculumStatus(message, type){
+    curriculumStatusEl.textContent = message || '';
+    curriculumStatusEl.className = 'curriculum-status' + (message ? ' visible ' + (type || 'success') : '');
+  }
+
+  function updateCurriculumMeta(curriculum){
+    if(!curriculum){
+      curriculumMetaEl.classList.remove('visible');
+      curriculumNameEl.textContent = '';
+      curriculumDetailEl.textContent = '';
+      return;
+    }
+    var requiredCount = 0, electiveCount = 0, requisiteCount = 0;
+    curriculum.categories.forEach(function(category){
+      category.required.forEach(function(course){
+        var kind = course.kind || 'required';
+        if(kind === 'elective') electiveCount++;
+        else if(kind === 'requisite') requisiteCount++;
+        else requiredCount++;
+      });
+    });
+    var credits = Math.round(curriculumCredits(curriculum.categories) * 100) / 100;
+    curriculumNameEl.textContent = curriculum.name;
+    var details = curriculum.progress && Number(curriculum.progress.total_ects) > 0
+      ? [curriculum.progress.completed_ects + ' / ' + curriculum.progress.total_ects + ' ECTS пройдено',
+        curriculum.progress.completed_positions + ' / ' + curriculum.progress.total_positions + ' позиций завершено']
+      : [requiredCount + ' обязательных · ' + credits + ' ECTS'];
+    if(electiveCount) details.push(electiveCount + ' элективов');
+    if(requisiteCount) details.push(requisiteCount + ' подготовительных');
+    curriculumDetailEl.textContent = details.join(' · ');
+    curriculumMetaEl.classList.add('visible');
+  }
+
+  function normalizeImportKey(value){
+    return String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[\s_.\-\/]+/g, '');
+  }
+
+  function valueByAliases(object, aliases){
+    var keys = Object.keys(object || {});
+    for(var i = 0; i < keys.length; i++){
+      if(aliases.indexOf(normalizeImportKey(keys[i])) !== -1) return object[keys[i]];
+    }
+    return undefined;
+  }
+
+  function normalizeUploadedCourse(raw, rowNumber){
+    if(!raw || typeof raw !== 'object') throw new Error('Некорректная дисциплина в строке ' + rowNumber + '.');
+    var code = valueByAliases(raw, ['code','coursecode','код','коддисциплины']);
+    var name = valueByAliases(raw, ['name','coursename','title','название','дисциплина','наименованиедисциплины']);
+    var rawCredits = valueByAliases(raw, ['credits','credit','ects','кредиты','кредит']);
+    var credits = Number(String(rawCredits === undefined ? '' : rawCredits).replace(',', '.'));
+    code = String(code === undefined ? '' : code).trim();
+    name = String(name === undefined ? '' : name).trim();
+    if(!code || !name || !Number.isFinite(credits) || credits < 0){
+      throw new Error('Строка ' + rowNumber + ': нужны code, name и неотрицательное значение credits.');
+    }
+    return {code:code, name:name, credits:credits};
+  }
+
+  function normalizeCatalogCourse(raw, rowNumber, kind){
+    var course = normalizeUploadedCourse(raw, rowNumber);
+    course.kind = kind;
+    var semesterValue = raw.semester;
+    if(semesterValue === undefined || semesterValue === null || semesterValue === ''){
+      semesterValue = raw.recommended_semester;
+    }
+    var semesterNumber = Number(semesterValue);
+    course.semester = semesterValue !== undefined && semesterValue !== null && semesterValue !== ''
+      && Number.isInteger(semesterNumber) && semesterNumber > 0
+      ? semesterNumber
+      : null;
+    course.prerequisites = Array.isArray(raw.prerequisites) ? raw.prerequisites : [];
+    course.equivalents = [];
+    course.eligible_slots = Array.isArray(raw.eligible_slots) ? raw.eligible_slots : [];
+    course.elective_type = kind === 'elective'
+      ? String(raw.type_name || raw.type || '').trim()
+      : null;
+    course.grade = raw.grade === undefined || raw.grade === null ? null : String(raw.grade).trim();
+    course.completion_status = raw.completion_status
+      ? String(raw.completion_status).trim().toLowerCase()
+      : null;
+    course.completed = raw.completed === true;
+    course.in_progress = raw.in_progress === true;
+    course.system_status = raw.system_status === undefined || raw.system_status === null
+      ? null
+      : String(raw.system_status).trim();
+    course.selected_in_curriculum = typeof raw.selected_in_curriculum === 'boolean'
+      ? raw.selected_in_curriculum
+      : null;
+    var selectedSemester = Number(raw.selected_semester);
+    course.selected_semester = raw.selected_semester !== undefined && raw.selected_semester !== null
+      && raw.selected_semester !== '' && Number.isInteger(selectedSemester) && selectedSemester > 0
+      ? selectedSemester
+      : null;
+    return course;
+  }
+
+  function parseSubjectElectiveCurriculum(parsed, fileName){
+    var subjects = Array.isArray(parsed.subjects) ? parsed.subjects : [];
+    var electives = Array.isArray(parsed.electives) ? parsed.electives : [];
+    var requisites = Array.isArray(parsed.requisite_courses) ? parsed.requisite_courses : [];
+    if(subjects.length + electives.length + requisites.length === 0){
+      throw new Error('В JSON не найдены subjects, electives или requisite_courses.');
+    }
+
+    var categories = [];
+    var semesters = Object.create(null);
+    var equivalentsByCode = Object.create(null);
+    var rawEquivalents = Array.isArray(parsed.course_equivalents_not_prerequisites)
+      ? parsed.course_equivalents_not_prerequisites
+      : [];
+    rawEquivalents.forEach(function(item){
+      var sourceCode = String(item.course_code || '').trim().toUpperCase();
+      if(!sourceCode) return;
+      if(!equivalentsByCode[sourceCode]) equivalentsByCode[sourceCode] = [];
+      equivalentsByCode[sourceCode].push({
+        code:String(item.equivalent_code || '').trim(),
+        name:String(item.equivalent_name || '').trim()
+      });
+    });
+    subjects.forEach(function(raw, index){
+      var semester = Number(raw.semester);
+      var categoryName = Number.isInteger(semester) && semester > 0
+        ? 'Семестр ' + semester
+        : 'Обязательные дисциплины';
+      if(!semesters[categoryName]){
+        semesters[categoryName] = {category:categoryName, required:[]};
+        categories.push(semesters[categoryName]);
+      }
+      var subject = normalizeCatalogCourse(raw, index + 1, 'required');
+      subject.equivalents = equivalentsByCode[subject.code.toUpperCase()] || [];
+      semesters[categoryName].required.push(subject);
+    });
+    categories.sort(function(a, b){
+      var aSemester = Number(a.category.replace(/\D/g, '')) || 999;
+      var bSemester = Number(b.category.replace(/\D/g, '')) || 999;
+      return aSemester - bSemester;
+    });
+
+    var electiveLabels = {
+      AE:'Элективы по направлению (AE)',
+      NAE:'Элективы вне направления (NAE)',
+      NTE:'Итоговые элективы (NTE)'
+    };
+    var electiveCategories = Object.create(null);
+    electives.forEach(function(raw, index){
+      var type = String(raw.type || raw.type_name || 'OTHER').trim().toUpperCase();
+      var categoryName = electiveLabels[type]
+        || ('Элективы — ' + String(raw.type_name || raw.type || 'другие'));
+      if(!electiveCategories[categoryName]){
+        electiveCategories[categoryName] = {category:categoryName, required:[]};
+        categories.push(electiveCategories[categoryName]);
+      }
+      electiveCategories[categoryName].required.push(
+        normalizeCatalogCourse(raw, subjects.length + index + 1, 'elective')
+      );
+    });
+
+    if(requisites.length){
+      categories.push({
+        category:'Подготовительные курсы (RC)',
+        required:requisites.map(function(raw, index){
+          return normalizeCatalogCourse(raw, subjects.length + electives.length + index + 1, 'requisite');
+        })
+      });
+    }
+
+    var sourceName = parsed.metadata && parsed.metadata.source;
+    return {
+      name:String(sourceName || fileName.replace(/\.[^.]+$/, '') || 'Мой учебный план').trim(),
+      categories:categories,
+      progress:parsed.curriculum_progress || null
+    };
+  }
+
+  function rowsToCategories(rows){
+    var categories = [];
+    var lookup = Object.create(null);
+    rows.forEach(function(raw, index){
+      var categoryName = valueByAliases(raw, ['category','group','section','категория','раздел','блок']);
+      categoryName = String(categoryName === undefined ? '' : categoryName).trim();
+      if(!categoryName) throw new Error('Строка ' + (index + 2) + ': не указана категория.');
+      if(!lookup[categoryName]){
+        lookup[categoryName] = {category:categoryName, required:[]};
+        categories.push(lookup[categoryName]);
+      }
+      lookup[categoryName].required.push(normalizeUploadedCourse(raw, index + 2));
+    });
+    return categories;
+  }
+
+  function parseDelimited(text, delimiter){
+    var rows = [], row = [], field = '', quoted = false;
+    for(var i = 0; i < text.length; i++){
+      var char = text[i];
+      if(quoted){
+        if(char === '"' && text[i + 1] === '"'){
+          field += '"';
+          i++;
+        } else if(char === '"'){
+          quoted = false;
+        } else {
+          field += char;
+        }
+      } else if(char === '"'){
+        quoted = true;
+      } else if(char === delimiter){
+        row.push(field);
+        field = '';
+      } else if(char === '\n' || char === '\r'){
+        if(char === '\r' && text[i + 1] === '\n') i++;
+        row.push(field);
+        if(row.some(function(cell){ return cell.trim() !== ''; })) rows.push(row);
+        row = [];
+        field = '';
+      } else {
+        field += char;
+      }
+    }
+    if(quoted) throw new Error('В CSV не закрыта кавычка.');
+    row.push(field);
+    if(row.some(function(cell){ return cell.trim() !== ''; })) rows.push(row);
+    return rows;
+  }
+
+  function parseCsvCurriculum(text, fileName){
+    var firstLine = (text.split(/\r?\n/).find(function(line){ return line.trim(); }) || '');
+    var candidates = [',',';','\t'];
+    var delimiter = candidates.sort(function(a, b){
+      return firstLine.split(b).length - firstLine.split(a).length;
+    })[0];
+    var rows = parseDelimited(text, delimiter);
+    if(rows.length < 2) throw new Error('CSV должен содержать заголовок и хотя бы одну дисциплину.');
+    var headers = rows[0].map(normalizeImportKey);
+    var requiredHeaders = {
+      category:['category','group','section','категория','раздел','блок'],
+      code:['code','coursecode','код','коддисциплины'],
+      name:['name','coursename','title','название','дисциплина','наименованиедисциплины'],
+      credits:['credits','credit','ects','кредиты','кредит']
+    };
+    var indexes = {};
+    Object.keys(requiredHeaders).forEach(function(fieldName){
+      indexes[fieldName] = headers.findIndex(function(header){ return requiredHeaders[fieldName].indexOf(header) !== -1; });
+      if(indexes[fieldName] === -1) throw new Error('В CSV отсутствует колонка ' + fieldName + '.');
+    });
+    var objects = rows.slice(1).map(function(cells){
+      return {
+        category:cells[indexes.category] || '',
+        code:cells[indexes.code] || '',
+        name:cells[indexes.name] || '',
+        credits:cells[indexes.credits] || ''
+      };
+    });
+    return {
+      name:fileName.replace(/\.[^.]+$/, '') || 'Мой учебный план',
+      categories:rowsToCategories(objects)
+    };
+  }
+
+  function parseJsonCurriculum(text, fileName){
+    var parsed;
+    try { parsed = JSON.parse(text); }
+    catch (_err) { throw new Error('JSON содержит синтаксическую ошибку.'); }
+    if(parsed && (Array.isArray(parsed.subjects) || Array.isArray(parsed.electives) || Array.isArray(parsed.requisite_courses))){
+      return parseSubjectElectiveCurriculum(parsed, fileName);
+    }
+    if(parsed && parsed.curriculum && typeof parsed.curriculum === 'object') parsed = parsed.curriculum;
+    var curriculumProgress = parsed && (parsed.progress || parsed.curriculum_progress) || null;
+    var curriculumName = (!Array.isArray(parsed) && parsed && (parsed.name || parsed.title))
+      || fileName.replace(/\.[^.]+$/, '') || 'Мой учебный план';
+    var source = Array.isArray(parsed) ? parsed : parsed && (parsed.categories || parsed.courses || parsed.subjects);
+    if(!Array.isArray(source) || source.length === 0) throw new Error('JSON не содержит списка дисциплин или категорий.');
+
+    var firstCourses = valueByAliases(source[0] || {}, ['required','courses','subjects','disciplines','дисциплины']);
+    var categories;
+    if(Array.isArray(firstCourses)){
+      categories = source.map(function(rawCategory, categoryIndex){
+        var categoryName = valueByAliases(rawCategory, ['category','name','title','категория','раздел','блок']);
+        var rawCourses = valueByAliases(rawCategory, ['required','courses','subjects','disciplines','дисциплины']);
+        if(!categoryName || !Array.isArray(rawCourses) || rawCourses.length === 0){
+          throw new Error('Некорректный раздел JSON №' + (categoryIndex + 1) + '.');
+        }
+        return {
+          category:String(categoryName).trim(),
+          required:rawCourses.map(function(course, courseIndex){
+            return normalizeUploadedCourse(course, courseIndex + 1);
+          })
+        };
+      });
+    } else {
+      categories = rowsToCategories(source);
+    }
+    return {name:String(curriculumName).trim(), categories:categories, progress:curriculumProgress};
+  }
+
+  function parseCurriculumFile(file, text){
+    var lowerName = file.name.toLowerCase();
+    if(lowerName.endsWith('.json')) return parseJsonCurriculum(text, file.name);
+    if(lowerName.endsWith('.csv')) return parseCsvCurriculum(text, file.name);
+    throw new Error('Поддерживаются только файлы CSV и JSON.');
+  }
+
+  async function degreeApi(url, options){
+    var response = await fetch(url, Object.assign({credentials:'same-origin'}, options || {}));
+    var data = null;
+    try { data = await response.json(); } catch (_err) { /* no JSON body */ }
+    if(!response.ok){
+      var detail = data && data.detail;
+      if(Array.isArray(detail) && detail.length) detail = detail[0].msg;
+      throw new Error(typeof detail === 'string' ? detail : 'Не удалось обработать учебный план.');
+    }
+    return data;
+  }
+
+  async function showDegreeData(categories, curriculumName, progress){
+    var transcriptResponse = await degreeApi('/api/transcript');
+    degreeState.completed = transcriptResponse.filter(function(course){ return course.status === 'completed'; });
+    degreeState.inProgress = transcriptResponse.filter(function(course){ return course.status === 'in-progress'; });
+    degreeState.audit = categories;
+    degreeState.curriculumName = curriculumName || 'Стандартный учебный план';
+    degreeState.progress = progress || null;
+    degreeState.loaded = true;
+    loadDataBtn.textContent = 'Данные загружены ✓';
+    loadDataBtn.classList.add('loaded');
+    renderDegreeAll();
+  }
+
+  async function restoreSavedCurriculum(){
+    try {
+      var data = await degreeApi('/api/curriculum');
+      if(!data.curriculum){
+        updateCurriculumMeta(null);
+        return;
+      }
+      updateCurriculumMeta(data.curriculum);
+      window.dispatchEvent(new CustomEvent('curriculum:updated', {detail:{curriculum:data.curriculum}}));
+      await showDegreeData(data.curriculum.categories, data.curriculum.name, data.curriculum.progress);
+    } catch (err) {
+      console.error('Не удалось загрузить сохранённый учебный план:', err);
+    }
+  }
+
   function renderDegreeWarning(){
     if(degreeState.loaded){
       degreeWarningEl.innerHTML = '';
       return;
     }
-    degreeWarningEl.innerHTML = '<div class="degree-warning">No transcript or degree audit data loaded yet. Click "Load transcript + degree audit" to run the analysis. (Pre-requirement: academic transcript, completed credit history, and degree audit database must be loaded.)</div>';
+    degreeWarningEl.innerHTML = '<div class="degree-warning">Загрузите свой CSV/JSON выше либо используйте стандартный учебный план кнопкой «Загрузить данные прогресса».</div>';
   }
 
   function renderDegreeOverview(analysis){
@@ -1664,11 +2985,11 @@ x<!DOCTYPE html>
       : 0;
     creditsCompletedEl.textContent = analysis.completedCredits + ' / ' + analysis.requiredCredits;
     creditsFillEl.style.width = pct + '%';
-    creditsCaptionEl.textContent = pct + '% of required credits completed ('
-      + analysis.inProgressCredits + ' cr currently in progress)';
+    creditsCaptionEl.textContent = pct + '% обязательных кредитов завершено ('
+      + analysis.inProgressCredits + ' ECTS в процессе)';
     inProgressCountEl.textContent = analysis.totalInProgress;
     remainingCountEl.textContent = analysis.totalMissing;
-    degreeCounterEl.innerHTML = analysis.totalMissing + '<span class="of"> of ' + analysis.totalRequired + ' required courses still not started</span>';
+    degreeCounterEl.innerHTML = analysis.totalMissing + '<span class="of"> из ' + analysis.totalRequired + ' позиций ещё не завершены</span>';
   }
 
   function renderDegreeBody(analysis){
@@ -1690,7 +3011,8 @@ x<!DOCTYPE html>
 
     analysis.categories.forEach(function(cat){
       var rows = cat.rows.filter(function(r){
-        return degreeState.filter === 'all' || r.status !== 'done';
+        return degreeState.filter === 'all'
+          || (r.kind === 'required' && r.status !== 'done');
       });
       if(rows.length === 0) return;
       anyRowsShown = true;
@@ -1705,34 +3027,98 @@ x<!DOCTYPE html>
 
       var sub = document.createElement('p');
       sub.className = 'req-category-sub';
-      sub.textContent = (cat.rows.length - cat.missingCount - cat.inProgressCount) + ' of ' + cat.rows.length + ' completed'
-        + (cat.inProgressCount ? ', ' + cat.inProgressCount + ' in progress' : '');
+      var summaryParts = [];
+      if(cat.requiredCount){
+        summaryParts.push((cat.requiredCount - cat.missingCount - cat.inProgressCount)
+          + ' из ' + cat.requiredCount + ' обязательных завершено');
+        if(cat.inProgressCount) summaryParts.push(cat.inProgressCount + ' изучается сейчас');
+      }
+      if(cat.electiveCount){
+        summaryParts.push(cat.selectedElectiveCount + ' выбрано из ' + cat.electiveCount + ' вариантов');
+        if(cat.completedElectiveCount) summaryParts.push(cat.completedElectiveCount + ' завершено');
+        if(cat.inProgressElectiveCount) summaryParts.push(cat.inProgressElectiveCount + ' изучается сейчас');
+      }
+      if(cat.requisiteCount) summaryParts.push(cat.requisiteCount + ' подготовительных курсов');
+      sub.textContent = summaryParts.join(' · ');
       block.appendChild(sub);
 
       rows.forEach(function(r){
         var row = document.createElement('div');
-        row.className = 'req-row';
+        row.className = 'req-row' + (r.prerequisiteBlocked ? ' blocked' : '');
 
         var dot = document.createElement('div');
-        dot.className = 'req-status-dot ' + r.status;
+        dot.className = 'req-status-dot ' + (r.prerequisiteBlocked ? 'blocked' : r.status);
 
         var name = document.createElement('span');
         name.className = 'req-name' + (r.status === 'done' ? ' done' : '');
         name.textContent = r.code + ' — ' + r.name;
 
+        var courseCopy = document.createElement('span');
+        courseCopy.className = 'req-course-copy';
+        courseCopy.appendChild(name);
+        var progressDetails = [];
+        if(r.grade) progressDetails.push('Оценка: ' + r.grade);
+        if(r.selectedSemester) progressDetails.push('Выбран на семестр ' + r.selectedSemester);
+        if(r.systemStatus) progressDetails.push('Статус системы: ' + r.systemStatus);
+        if(progressDetails.length){
+          var progressDetail = document.createElement('span');
+          progressDetail.className = 'req-progress-detail';
+          progressDetail.textContent = progressDetails.join(' · ');
+          courseCopy.appendChild(progressDetail);
+        }
+        if(r.prerequisites.length){
+          var prerequisites = document.createElement('span');
+          prerequisites.className = 'req-prereqs' + (r.prerequisiteBlocked ? ' blocked' : '');
+          if(r.prerequisiteBlocked){
+            prerequisites.textContent = '⛔ НЕЛЬЗЯ ВЫБРАТЬ КУРС. Сначала завершите: '
+              + r.missingPrerequisites.map(function(item){
+                var label = [item.code, item.name].filter(Boolean).join(' — ');
+                return label + ' (' + degreePrerequisiteStatusLabel(item) + ')';
+              }).join('; ') + '.';
+          } else {
+            var prerequisiteLabel = r.prerequisites.some(function(item){ return item.official === false; })
+              ? 'Предполагаемые пререквизиты: '
+              : 'Пререквизиты: ';
+            prerequisites.textContent = prerequisiteLabel + r.prerequisites.map(function(item){
+              return item.code || item.name;
+            }).filter(Boolean).join(', ');
+          }
+          courseCopy.appendChild(prerequisites);
+        }
+        if(r.equivalents.length){
+          var equivalents = document.createElement('span');
+          equivalents.className = 'req-equivalents';
+          equivalents.textContent = 'Эквиваленты: ' + r.equivalents.map(function(item){
+            return [item.code, item.name].filter(Boolean).join(' — ');
+          }).filter(Boolean).join('; ');
+          courseCopy.appendChild(equivalents);
+        }
+        if(r.eligibleSlots.length){
+          var slots = document.createElement('span');
+          slots.className = 'req-slots';
+          slots.textContent = 'Можно выбрать: ' + r.eligibleSlots.join('; ');
+          courseCopy.appendChild(slots);
+        }
+
         var credits = document.createElement('span');
         credits.className = 'req-credits';
         credits.textContent = r.credits + ' cr';
 
-        var badgeText = r.status === 'done' ? 'Completed'
-          : r.status === 'in-progress' ? 'In Progress'
-          : 'Missing';
+        var displayStatus = r.prerequisiteBlocked ? 'blocked' : r.status;
+        var badgeText = displayStatus === 'blocked' ? 'Недоступен'
+          : displayStatus === 'done' ? 'Пройден'
+          : displayStatus === 'in-progress' ? 'В процессе'
+          : displayStatus === 'available' ? 'Доступен'
+          : displayStatus === 'planned' ? 'Запланирован'
+          : displayStatus === 'elective' ? 'Не выбран'
+          : displayStatus === 'requisite' ? 'Не отслеживается'
+          : 'Не начат';
         var badge = document.createElement('span');
-        badge.className = 'req-badge ' + r.status;
+        badge.className = 'req-badge ' + displayStatus;
         badge.textContent = badgeText;
 
         row.appendChild(dot);
-        row.appendChild(name);
+        row.appendChild(courseCopy);
         row.appendChild(credits);
         row.appendChild(badge);
         block.appendChild(row);
@@ -1761,30 +3147,72 @@ x<!DOCTYPE html>
       return;
     }
     var analysis = analyzeDegreeAudit(degreeState.completed, degreeState.inProgress, degreeState.audit);
+    if(degreeState.progress){
+      var progress = degreeState.progress;
+      analysis.completedCredits = Number(progress.completed_ects) || 0;
+      analysis.inProgressCredits = Number(progress.in_progress_ects) || 0;
+      analysis.requiredCredits = Number(progress.total_ects) || analysis.requiredCredits;
+      analysis.totalRequired = Number(progress.total_positions) || analysis.totalRequired;
+      analysis.totalInProgress = Number(progress.in_progress_positions) || 0;
+      analysis.totalMissing = Math.max(
+        0,
+        analysis.totalRequired
+          - (Number(progress.completed_positions) || 0)
+          - analysis.totalInProgress
+      );
+    }
     renderDegreeOverview(analysis);
     renderDegreeBody(analysis);
   }
 
-  loadDataBtn.addEventListener('click', async function(){ // <--- добавили async
+  loadDataBtn.addEventListener('click', async function(){
     if(degreeState.loaded) return;
-
     try {
-      // Запрос к Python-бэкенду за данными из БД
-      const res = await fetch('/api/transcript');
-      const transcript = await res.json();
-
-      degreeState.completed = transcript.filter(function(c){ return c.status === 'completed'; });
-      degreeState.inProgress = transcript.filter(function(c){ return c.status === 'in-progress'; });
-      degreeState.audit = generateDegreeAudit();
-      
-      degreeState.loaded = true;
-      loadDataBtn.textContent = 'Data loaded ✓';
-      loadDataBtn.classList.add('loaded');
-      renderDegreeAll();
+      var curriculumData = await degreeApi('/api/curriculum');
+      if(curriculumData.curriculum){
+        updateCurriculumMeta(curriculumData.curriculum);
+        await showDegreeData(
+          curriculumData.curriculum.categories,
+          curriculumData.curriculum.name,
+          curriculumData.curriculum.progress
+        );
+      } else {
+        await showDegreeData(generateDegreeAudit(), 'Стандартный учебный план', null);
+      }
     } catch (err) {
-      console.error("Ошибка загрузки данных транскрипта из БД:", err);
+      setCurriculumStatus(err.message, 'error');
     }
   });
+
+  curriculumFileInput.addEventListener('change', async function(){
+    var file = curriculumFileInput.files && curriculumFileInput.files[0];
+    if(!file) return;
+    try {
+      if(file.size > 1024 * 1024) throw new Error('Файл слишком большой. Максимальный размер — 1 МБ.');
+      setCurriculumStatus('Читаем и проверяем файл…', 'loading');
+      var text = await file.text();
+      var payload = parseCurriculumFile(file, text);
+      var data = await degreeApi('/api/curriculum', {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      updateCurriculumMeta(data.curriculum);
+      window.dispatchEvent(new CustomEvent('curriculum:updated', {detail:{curriculum:data.curriculum}}));
+      await showDegreeData(data.curriculum.categories, data.curriculum.name, data.curriculum.progress);
+      setCurriculumStatus(
+        'Учебный план сохранён: ' + curriculumCourseCount(data.curriculum.categories) + ' дисциплин и вариантов.',
+        'success'
+      );
+    } catch (err) {
+      setCurriculumStatus(err.message, 'error');
+    } finally {
+      curriculumFileInput.value = '';
+    }
+  });
+
+  window.addEventListener('auth:ready', restoreSavedCurriculum);
+  if(window.scheduleCurrentUser) restoreSavedCurriculum();
 
   filterAllBtn.addEventListener('click', function(){
     degreeState.filter = 'all';
