@@ -1,11 +1,10 @@
-from email.message import EmailMessage
 import hashlib
 import hmac
+import json
 import math
 import os
 import re
 import secrets
-import smtplib
 import time
 from typing import List, Optional
 
@@ -16,6 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Column, ForeignKey, Integer, JSON, String, create_engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+
+from waitlist_service import install_waitlists
+import mailer
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -49,6 +51,7 @@ class UserModel(Base):
     email = Column(String(254), unique=True, index=True, nullable=False)
     password_hash = Column(String(512), nullable=False)
     created_at = Column(Integer, nullable=False)
+    email_verified = Column(Integer, nullable=False, default=0)
 
 
 class AuthSessionModel(Base):
@@ -67,6 +70,15 @@ class PasswordResetModel(Base):
     token_hash = Column(String(64), unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
     expires_at = Column(Integer, index=True, nullable=False)
+    used_at = Column(Integer, nullable=True)
+
+
+class EmailVerificationModel(Base):
+    __tablename__ = "email_verifications"
+    id = Column(Integer, primary_key=True)
+    token_hash = Column(String(64), unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    expires_at = Column(Integer, nullable=False)
     used_at = Column(Integer, nullable=True)
 
 
@@ -93,6 +105,7 @@ class CurriculumModel(Base):
     name = Column(String(120), nullable=False)
     categories = Column(JSON, nullable=False)
     progress = Column(JSON, nullable=True)
+    schedule_revision = Column(String(64), nullable=True)
     updated_at = Column(Integer, nullable=False)
 
 
@@ -109,6 +122,11 @@ class TranscriptModel(Base):
 Base.metadata.create_all(bind=engine)
 
 
+if "email_verified" not in {column["name"] for column in inspect(engine).get_columns("users")}:
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0"))
+
+
 def ensure_curriculum_progress_column() -> None:
     """Add the progress column for databases created by an earlier app version."""
     if engine.dialect.name != "sqlite":
@@ -117,6 +135,9 @@ def ensure_curriculum_progress_column() -> None:
     if "progress" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE curricula ADD COLUMN progress JSON"))
+    if "schedule_revision" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE curricula ADD COLUMN schedule_revision VARCHAR(64)"))
 
 
 ensure_curriculum_progress_column()
@@ -183,6 +204,10 @@ class ResetPasswordSchema(BaseModel):
     password: str
 
 
+class VerifyEmailSchema(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+
+
 class CurriculumCourseSchema(BaseModel):
     code: str
     name: str
@@ -200,6 +225,7 @@ class CurriculumCourseSchema(BaseModel):
     system_status: Optional[str] = None
     selected_in_curriculum: Optional[bool] = None
     selected_semester: Optional[int] = None
+    schedule: Optional[dict] = None
 
 
 class CurriculumCategorySchema(BaseModel):
@@ -217,6 +243,7 @@ EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 PASSWORD_ITERATIONS = 390_000
 SESSION_TTL_SECONDS = int(os.getenv("AUTH_SESSION_TTL_SECONDS", str(30 * 24 * 60 * 60)))
 RESET_TTL_SECONDS = int(os.getenv("AUTH_RESET_TTL_SECONDS", str(30 * 60)))
+VERIFY_TTL_SECONDS = int(os.getenv("AUTH_VERIFY_TTL_SECONDS", str(24 * 60 * 60)))
 COOKIE_NAME = "schedule_session"
 COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "false").lower() == "true"
 ENVIRONMENT = os.getenv("APP_ENV", "development").lower()
@@ -405,6 +432,7 @@ def normalize_curriculum(payload: CurriculumSchema) -> tuple[str, list[dict], Op
                     "system_status": system_status,
                     "selected_in_curriculum": selected_in_curriculum,
                     "selected_semester": selected_semester,
+                    "schedule": course.schedule,
                 }
             )
         normalized_categories.append({"category": category_name, "required": courses})
@@ -453,11 +481,60 @@ def normalize_curriculum(payload: CurriculumSchema) -> tuple[str, list[dict], Op
 
 
 def public_curriculum(curriculum: CurriculumModel) -> dict:
+    # Older imports did not retain section data; recover it by course code.
+    current = default_curriculum()
+    refresh = curriculum.schedule_revision != current["schedule_revision"]
+    schedules = {
+        course["code"]: course.get("schedule")
+        for category in current["categories"]
+        for course in category["required"]
+    }
     return {
         "name": curriculum.name,
-        "categories": curriculum.categories,
+        "categories": [
+            {**category, "required": [
+                {**course, "schedule": (schedules.get(course["code"]) if refresh else None)
+                    or course.get("schedule") or schedules.get(course["code"])}
+                for course in category["required"]
+            ]}
+            for category in curriculum.categories
+        ],
         "progress": curriculum.progress,
         "updated_at": curriculum.updated_at,
+    }
+
+
+def default_curriculum() -> dict:
+    """Load the bundled curriculum, including its lecture/practice sections."""
+    path = os.path.join(BASE_DIR, "data", "curriculum_subjects_and_electives_with_schedule.json")
+    with open(path, encoding="utf-8") as source:
+        raw = json.load(source)
+    groups = {}
+    equivalents = {}
+    for item in raw.get("course_equivalents_not_prerequisites", []):
+        equivalents.setdefault(item["course_code"], []).append({
+            "code": item["equivalent_code"], "name": item["equivalent_name"]
+        })
+    for key, kind in (("subjects", "required"), ("electives", "elective"), ("requisite_courses", "requisite")):
+        for item in raw.get(key, []):
+            semester = item.get("semester") or item.get("recommended_semester")
+            category = f"Семестр {semester}" if kind == "required" and semester else (
+                f"Элективы ({item.get('type', 'OTHER')})" if kind == "elective" else "Подготовительные курсы (RC)"
+            )
+            course = CurriculumCourseSchema(**{
+                **item, "credits": item.get("ects", 0), "kind": kind,
+                "semester": semester, "elective_type": item.get("type"),
+                "completed": item.get("completed") is True,
+                "in_progress": item.get("in_progress") is True,
+                "equivalents": equivalents.get(item["code"], []),
+            }).model_dump()
+            groups.setdefault(category, []).append(course)
+    return {
+        "name": "Updated curriculum · 240 ECTS",
+        "categories": [{"category": key, "required": courses} for key, courses in groups.items()],
+        "progress": raw.get("curriculum_progress"),
+        "schedule_metadata": raw.get("metadata", {}).get("schedule_generation", {}),
+        "schedule_revision": hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest(),
     }
 
 
@@ -506,48 +583,44 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> UserMod
     user = db.query(UserModel).filter(UserModel.id == auth_session.user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден.")
+    if not user.email_verified:
+        raise HTTPException(403, detail="Подтвердите адрес электронной почты перед входом.")
     return user
 
 
 def send_reset_email(recipient: str, reset_url: str) -> bool:
-    smtp_host = os.getenv("SMTP_HOST", "").strip()
-    if not smtp_host:
-        if ENVIRONMENT == "production":
-            raise RuntimeError("SMTP_HOST must be configured in production")
-        # Local fallback: the reset link is logged and exposed only outside production.
-        print(f"[development] Password reset link for {recipient}: {reset_url}")
-        return False
+    return mailer.send_email(recipient, "Подтверждение сброса пароля — Schedule Builder",
+        "Для подтверждения адреса и сброса пароля откройте одноразовую ссылку:\n\n"
+        + reset_url + "\n\nЕсли вы не запрашивали сброс, проигнорируйте письмо.")
 
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_username = os.getenv("SMTP_USERNAME", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "")
-    smtp_from = os.getenv("SMTP_FROM", smtp_username).strip()
-    use_ssl = os.getenv("SMTP_USE_SSL", "false").lower() == "true"
-    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
-    if not smtp_from:
-        raise RuntimeError("SMTP_FROM or SMTP_USERNAME must be configured")
 
-    message = EmailMessage()
-    message["Subject"] = "Восстановление пароля — Schedule Builder"
-    message["From"] = smtp_from
-    message["To"] = recipient
-    message.set_content(
-        "Вы запросили восстановление пароля в Schedule Builder.\n\n"
-        f"Откройте ссылку в течение 30 минут:\n{reset_url}\n\n"
-        "Если это были не вы, просто проигнорируйте письмо."
-    )
-
-    smtp_class = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
-    with smtp_class(smtp_host, smtp_port, timeout=15) as smtp:
-        if not use_ssl and use_tls:
-            smtp.starttls()
-        if smtp_username:
-            smtp.login(smtp_username, smtp_password)
-        smtp.send_message(message)
-    return True
+def send_verification(db: Session, user: UserModel) -> None:
+    now = int(time.time())
+    recent = db.query(EmailVerificationModel).filter(
+        EmailVerificationModel.user_id == user.id,
+        EmailVerificationModel.expires_at > now + VERIFY_TTL_SECONDS - 60,
+        EmailVerificationModel.used_at.is_(None),
+    ).first()
+    if recent:
+        raise HTTPException(429, detail="Подождите минуту перед повторной отправкой.")
+    raw_token = secrets.token_urlsafe(32)
+    db.query(EmailVerificationModel).filter_by(user_id=user.id).delete(synchronize_session=False)
+    db.add(EmailVerificationModel(token_hash=token_digest(raw_token), user_id=user.id,
+        expires_at=now + VERIFY_TTL_SECONDS))
+    base_url = os.getenv("APP_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    try:
+        mailer.send_email(user.email, "Подтвердите почту — Schedule Builder",
+            "Подтвердите адрес электронной почты по одноразовой ссылке:\n\n"
+            + base_url + "/#verify-token=" + raw_token
+            + "\n\nПосле подтверждения войдите с паролем. Если вы не регистрировались, проигнорируйте письмо.")
+    except Exception:
+        db.rollback()
+        raise HTTPException(503, detail="Письмо не отправлено. Настройте SMTP и попробуйте снова.")
 
 
 app = FastAPI(title="Schedule & Degree Audit API")
+
+install_waitlists(app, Base, SessionLocal, UserModel, get_current_user, default_curriculum())
 
 
 @app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
@@ -566,14 +639,46 @@ def register(payload: RegisterSchema, response: Response, db: Session = Depends(
     )
     db.add(user)
     try:
+        db.flush()
+        send_verification(db, user)
         db.commit()
-        db.refresh(user)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Аккаунт с такой почтой уже существует.")
+        raise HTTPException(status_code=409, detail="Аккаунт с такой почтой уже существует. Войдите или запросите подтверждение повторно.")
+    return {"verification_required": True, "email":email,
+        "message":"Письмо отправлено. Подтвердите почту по ссылке перед входом."}
 
-    create_session(db, user, response)
-    return {"user": public_user(user)}
+
+@app.post("/api/auth/resend-verification")
+def resend_verification(payload: ForgotPasswordSchema, db: Session = Depends(get_db)):
+    email = normalize_email(payload.email)
+    user = db.query(UserModel).filter_by(email=email).first()
+    if user and not user.email_verified:
+        send_verification(db, user)
+        db.commit()
+    return {"message":"Если адрес ожидает подтверждения, письмо отправлено. Проверьте почту."}
+
+
+@app.post("/api/auth/verify-email")
+def verify_email(payload: VerifyEmailSchema, db: Session = Depends(get_db)):
+    now = int(time.time())
+    record = db.query(EmailVerificationModel).filter_by(token_hash=token_digest(payload.token)).first()
+    if not record or record.used_at or record.expires_at <= now:
+        raise HTTPException(400, detail="Ссылка подтверждения недействительна или истекла.")
+    claimed = db.query(EmailVerificationModel).filter(
+        EmailVerificationModel.id == record.id, EmailVerificationModel.used_at.is_(None),
+        EmailVerificationModel.expires_at > now,
+    ).update({"used_at":now}, synchronize_session=False)
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(400, detail="Ссылка уже использована.")
+    user = db.get(UserModel, record.user_id)
+    if not user:
+        db.rollback()
+        raise HTTPException(400, detail="Аккаунт не найден.")
+    user.email_verified = 1
+    db.commit()
+    return {"message":"Почта подтверждена. Теперь можно войти."}
 
 
 @app.post("/api/auth/login")
@@ -583,6 +688,8 @@ def login(payload: LoginSchema, response: Response, db: Session = Depends(get_db
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Неверная почта или пароль.")
 
+    if not user.email_verified:
+        raise HTTPException(403, detail="Подтвердите почту. Запросите новое письмо на экране подтверждения.")
     create_session(db, user, response)
     return {"user": public_user(user)}
 
@@ -612,40 +719,24 @@ def forgot_password(payload: ForgotPasswordSchema, db: Session = Depends(get_db)
         return {"message": generic_message}
 
     now = int(time.time())
+    recent = db.query(PasswordResetModel).filter(
+        PasswordResetModel.user_id == user.id, PasswordResetModel.used_at.is_(None),
+        PasswordResetModel.expires_at > now + RESET_TTL_SECONDS - 60,
+    ).first()
+    if recent:
+        return {"message":generic_message}
     raw_token = secrets.token_urlsafe(32)
-    db.query(PasswordResetModel).filter(
-        PasswordResetModel.user_id == user.id,
-        PasswordResetModel.used_at.is_(None),
-    ).delete(synchronize_session=False)
-    reset_record = PasswordResetModel(
-        token_hash=token_digest(raw_token),
-        user_id=user.id,
-        expires_at=now + RESET_TTL_SECONDS,
-    )
-    db.add(reset_record)
-    db.commit()
-
+    db.query(PasswordResetModel).filter_by(user_id=user.id).delete(synchronize_session=False)
+    db.add(PasswordResetModel(token_hash=token_digest(raw_token), user_id=user.id,
+        expires_at=now + RESET_TTL_SECONDS))
     base_url = os.getenv("APP_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
-    reset_url = f"{base_url}/#reset-token={raw_token}"
     try:
-        delivered = send_reset_email(email, reset_url)
-    except Exception:
-        db.delete(reset_record)
+        send_reset_email(email, f"{base_url}/#reset-token={raw_token}")
         db.commit()
-        raise HTTPException(
-            status_code=503,
-            detail="Не удалось отправить письмо. Проверьте настройки почтового сервера.",
-        )
-
-    result = {"message": generic_message}
-    if not delivered and ENVIRONMENT != "production":
-        result.update(
-            {
-                "development_reset_token": raw_token,
-                "message": "SMTP не настроен. В режиме разработки можно продолжить сброс прямо здесь.",
-            }
-        )
-    return result
+    except Exception:
+        db.rollback()
+        raise HTTPException(503, detail="Письмо не отправлено. Проверьте настройки SMTP.")
+    return {"message":generic_message}
 
 
 @app.post("/api/auth/reset-password")
@@ -668,8 +759,15 @@ def reset_password(payload: ResetPasswordSchema, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=400, detail="Ссылка недействительна.")
 
+    claimed = db.query(PasswordResetModel).filter(
+        PasswordResetModel.id == reset_record.id, PasswordResetModel.used_at.is_(None),
+        PasswordResetModel.expires_at > now,
+    ).update({"used_at":now}, synchronize_session=False)
+    if claimed != 1:
+        db.rollback()
+        raise HTTPException(400, detail="Ссылка уже использована.")
     user.password_hash = hash_password(payload.password)
-    reset_record.used_at = now
+    user.email_verified = 1
     db.query(AuthSessionModel).filter(AuthSessionModel.user_id == user.id).delete(
         synchronize_session=False
     )
@@ -684,7 +782,7 @@ def get_curriculum(
     curriculum = (
         db.query(CurriculumModel).filter(CurriculumModel.owner_id == user.id).first()
     )
-    return {"curriculum": public_curriculum(curriculum) if curriculum else None}
+    return {"curriculum": public_curriculum(curriculum) if curriculum else default_curriculum()}
 
 
 @app.put("/api/curriculum")
@@ -703,12 +801,14 @@ def save_curriculum(
         curriculum.categories = categories
         curriculum.progress = progress
         curriculum.updated_at = now
+        curriculum.schedule_revision = default_curriculum()["schedule_revision"]
     else:
         curriculum = CurriculumModel(
             owner_id=user.id,
             name=curriculum_name,
             categories=categories,
             progress=progress,
+            schedule_revision=default_curriculum()["schedule_revision"],
             updated_at=now,
         )
         db.add(curriculum)

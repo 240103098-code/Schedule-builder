@@ -4,26 +4,37 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Schedule Builder — Conflict-Free Timetables</title>
+<script src="/static/timetable.js"></script>
+<script>
+try {
+  var savedTheme = localStorage.getItem('schedule-theme');
+  document.documentElement.dataset.theme = savedTheme === 'dark' || savedTheme === 'light'
+    ? savedTheme : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+} catch (_) { document.documentElement.dataset.theme = 'light'; }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
+    color-scheme:light;
+    --surface:#fff;
     --paper:#F6F1E6;
     --paper-line:#E1D8C4;
     --ink:#1F2340;
     --ink-soft:#565A78;
-    --board-bg:#14162B;
-    --board-bg-2:#191C35;
-    --board-line:#31355A;
-    --board-text:#F1EEE5;
-    --board-text-soft:#9BA0C4;
+    --board-bg:#F6F1E6;
+    --board-bg-2:#fff;
+    --board-line:#D5CBB8;
+    --board-text:#1F2340;
+    --board-text-soft:#565A78;
     --accent:#E8A33D;
     --accent-ink:#14162B;
     --danger:#D1495B;
     --danger-soft:#3A2230;
     --radius-s:4px;
     --radius-m:8px;
+    --mono:'Space Mono',monospace;
     font-family:'Inter',system-ui,sans-serif;
   }
   *{box-sizing:border-box;}
@@ -1015,6 +1026,76 @@
     .account-copy{flex:1;}
   }
 </style>
+<style>
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --paper:#14162B; --surface:#20243D; --paper-line:#3B4161;
+    --ink:#F1EEE5; --ink-soft:#B4BAD6;
+    --board-bg:#14162B; --board-bg-2:#191C35; --board-line:#3B4161;
+    --board-text:#F1EEE5; --board-text-soft:#B4BAD6;
+  }
+  .course-card,.auth-input,.logout-btn,.data-card,.curriculum-upload,.curriculum-file-btn,
+  .time-input,.section-block,.day-btn:not(.on){background:var(--surface);}
+  .theme-toggle{border:1px solid var(--paper-line); background:var(--surface); color:var(--ink);
+    border-radius:8px; padding:8px 10px; cursor:pointer; font:600 11px 'Inter',sans-serif;}
+  .auth-brand .theme-toggle{margin-left:auto;}
+  .semester-controls{margin-bottom:22px;}
+  .semester-controls select{width:100%; background:var(--surface); color:var(--ink);
+    border:1px solid var(--paper-line); border-radius:6px; padding:10px; margin:8px 0;}
+  .semester-courses{max-height:240px; overflow-y:auto; margin:8px 0;}
+  .semester-course{display:flex; align-items:flex-start; gap:8px; font-size:12px; line-height:1.5; padding:6px 0;}
+  .semester-course input{accent-color:var(--accent); margin-top:3px;}
+  .semester-note,.section-quota{color:var(--ink-soft); font-size:11px; line-height:1.5;}
+  .waitlist-select{display:block;width:100%;padding:10px;margin:8px 0 18px;
+    background:var(--surface);color:var(--ink);border:1px solid var(--paper-line);border-radius:6px;}
+  .lesson-table{width:100%;min-width:700px;table-layout:fixed;border-collapse:collapse;color:var(--board-text);}
+  .lesson-table caption{text-align:left;font-size:11px;color:var(--board-text-soft);padding:0 0 12px;}
+  .lesson-table th,.lesson-table td{border:1px solid var(--board-line);padding:8px;vertical-align:top;}
+  .lesson-table thead th{background:var(--board-bg-2);font:11px var(--mono);}
+  .lesson-table th:first-child{width:112px;}
+  .lesson-table tbody th{font:11px var(--mono);vertical-align:middle;white-space:nowrap;}
+  .lesson-cell-content{min-height:92px;display:flex;flex-direction:column;gap:6px;}
+  .lesson-card{padding:8px;border-radius:6px;color:#171933;font-size:12px;overflow-wrap:anywhere;}
+  .lesson-card.is-practice{border:2px dashed #947231;}
+  .lesson-type,.lesson-meta,.lesson-name{display:block;}
+  .lesson-type,.lesson-meta{font:10px var(--mono);margin:3px 0;}
+  .lesson-name{font-weight:600;}
+  .waitlist-preview{margin-bottom:24px;}
+  .waitlist-row{padding:16px;margin-bottom:12px;background:var(--board-bg-2);
+    border:1px solid var(--board-line);border-radius:8px;line-height:1.5;overflow-wrap:anywhere;}
+  .waitlist-row p{margin:4px 0 10px;}
+  .waitlist-log-title{font-size:18px;margin:20px 0 10px;}
+  .waitlist-log{max-height:240px;overflow-y:auto;border:1px solid var(--board-line);
+    border-radius:8px;background:var(--board-bg-2);padding:4px 10px;}
+  .waitlist-log .waitlist-row{display:grid;grid-template-columns:minmax(160px,220px) 1fr;
+    gap:6px 12px;padding:8px 0;margin:0;border:0;border-bottom:1px solid var(--board-line);
+    border-radius:0;font-size:12px;line-height:1.4;}
+  .waitlist-log .waitlist-row:last-child{border-bottom:0;}
+  .waitlist-log .waitlist-row strong{font-size:11px;font-weight:600;}
+  .waitlist-log .waitlist-row p{margin:0;color:var(--board-text-soft);}
+  @media(max-width:640px){.waitlist-log .waitlist-row{grid-template-columns:1fr;gap:3px;}}
+  .section-quota{margin:4px 0 8px;}
+  :root[data-theme="dark"] .req-row{background:var(--surface);}
+  :root[data-theme="light"] .req-row.blocked .req-name,
+  :root[data-theme="light"] .req-prereqs.blocked{color:#972C3D;}
+  :root[data-theme="light"] .req-badge.done{color:#245D52;}
+  :root[data-theme="light"] .req-badge.available{color:#3D651B;}
+  :root[data-theme="light"] .req-badge.in-progress,
+  :root[data-theme="light"] .degree-filter-btn.active{color:#81500C;}
+  :root[data-theme="light"] .req-badge.missing{color:#972C3D;}
+  :root[data-theme="light"] .req-badge.planned{color:#565A78;}
+  :root[data-theme="light"] .req-badge.elective{color:#285983;}
+  :root[data-theme="light"] .req-badge.requisite{color:#714593;}
+  :root[data-theme="dark"] .prerequisite-check.ok,
+  :root[data-theme="dark"] .auth-status.success,
+  :root[data-theme="dark"] .curriculum-status.success{background:#213D36; color:#B4E4D3;}
+  :root[data-theme="dark"] .prerequisite-check.info,
+  :root[data-theme="dark"] .degree-warning,
+  :root[data-theme="dark"] .curriculum-status.loading{background:#3A3020; color:#F4CE8C;}
+  :root[data-theme="dark"] .auth-status.error,
+  :root[data-theme="dark"] .curriculum-status.error,
+  :root[data-theme="dark"] .course-card.has-prerequisite-error .course-code-input{background:#3A2230; color:#FFB7C4;}
+</style>
 </head>
 <body class="auth-pending auth-locked">
 
@@ -1023,6 +1104,7 @@
     <div class="auth-brand">
       <span class="auth-brand-mark">SB</span>
       <span class="auth-brand-name">Schedule Builder</span>
+      <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
     </div>
 
     <div class="auth-view active" id="authLoadingView">
@@ -1043,9 +1125,10 @@
       </label>
       <button class="auth-primary" type="submit">Войти</button>
       <div class="auth-actions">
-        <button class="auth-link" type="button" data-auth-view="forgot">Забыли пароль?</button>
+        <button class="auth-link" type="button" data-auth-view="forgot">Восстановить пароль по почте</button>
         <span>Нет аккаунта? <button class="auth-link" type="button" data-auth-view="register">Регистрация</button></span>
       </div>
+      <div class="auth-actions"><button class="auth-link" type="button" data-auth-view="verify">Подтвердить почту / повторить отправку</button></div>
     </form>
 
     <form class="auth-view" id="registerForm" data-view="register" novalidate>
@@ -1091,6 +1174,22 @@
       </div>
     </form>
 
+    <form class="auth-view" id="verifyForm" data-view="verify" novalidate>
+      <h2 class="auth-title">Подтвердите почту</h2>
+      <p class="auth-subtitle">Откройте письмо и перейдите по одноразовой ссылке, затем нажмите «Подтвердить». До подтверждения вход закрыт.</p>
+      <div class="auth-status" data-auth-status></div>
+      <input id="verifyToken" type="hidden">
+      <label class="auth-field">
+        <span class="auth-field-label">Почта для повторной отправки</span>
+        <input class="auth-input" id="verifyEmail" type="email" autocomplete="email" placeholder="name@example.com">
+      </label>
+      <button class="auth-primary" id="verifyEmailBtn" type="submit" disabled>Подтвердить адрес</button>
+      <div class="auth-actions">
+        <button class="auth-link" id="resendVerifyBtn" type="button">Отправить письмо повторно</button>
+        <button class="auth-link" type="button" data-auth-view="login">Войти</button>
+      </div>
+    </form>
+
     <form class="auth-view" id="resetForm" data-view="reset" novalidate>
       <h2 class="auth-title">Новый пароль</h2>
       <p class="auth-subtitle">Придумайте новый пароль для своего аккаунта.</p>
@@ -1116,7 +1215,9 @@
 <div class="top-tabs">
   <button class="top-tab-btn active" id="tabScheduleBtn" type="button">01 · Schedule Builder</button>
   <button class="top-tab-btn" id="tabDegreeBtn" type="button">02 · Degree Progress</button>
+  <button class="top-tab-btn" id="tabWaitlistBtn" type="button">03 · Waitlists</button>
   <span class="tabs-spacer"></span>
+  <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
   <div class="account-panel" id="accountPanel">
     <span class="account-avatar" id="accountAvatar"></span>
     <span class="account-copy">
@@ -1135,12 +1236,22 @@
   <div class="sidebar">
     <div class="brand"><span class="mark">01</span></div>
     <h1 class="title">Schedule Builder</h1>
-    <p class="subtitle">Add your courses, list every lecture and practice you could take, and generate every combination that has zero time conflicts.</p>
-
-    <p class="section-label">YOUR COURSES</p>
-    <div id="courseList"></div>
-    <datalist id="curriculumCourseOptions"></datalist>
-    <button class="add-course-btn" id="addCourseBtn">+ Add a course</button>
+    <p class="subtitle">Choose a semester and courses from your curriculum to generate conflict-free schedules using available sections.</p>
+    <div class="semester-controls">
+      <label class="section-label" for="semesterSelect">CURRICULUM SEMESTER</label>
+      <select id="semesterSelect" disabled><option>Loading curriculum…</option></select>
+      <div class="semester-note">Times use Asia/Qyzylorda. The supplied section times are generated examples, not the official university timetable. Quotas are seats per section.</div>
+      <div class="semester-courses" id="semesterCourses"></div>
+      <label class="section-label" for="dayOffSelect">DAY OFF</label>
+      <select id="dayOffSelect">
+        <option value="">No preference</option>
+        <option value="Mon">Monday</option><option value="Tue">Tuesday</option>
+        <option value="Wed">Wednesday</option><option value="Thu">Thursday</option>
+        <option value="Fri">Friday</option><option value="Sat">Saturday</option>
+        <option value="Sun">Sunday</option>
+      </select>
+      <div class="semester-note">Your day off stays free. Schedules with shorter gaps and fewer days with only 1–2 lessons appear first.</div>
+    </div>
 
     <button class="generate-btn" id="generateBtn">Generate schedules</button>
     <div class="status-line" id="statusLine"></div>
@@ -1232,6 +1343,27 @@
 
 <script>
 (function(){
+  function renderTheme(){
+    var dark = document.documentElement.dataset.theme === 'dark';
+    document.querySelectorAll('.theme-toggle').forEach(function(button){
+      button.textContent = dark ? '☀ Light mode' : '☾ Dark mode';
+      button.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+      button.setAttribute('aria-pressed', String(dark));
+    });
+  }
+  document.querySelectorAll('.theme-toggle').forEach(function(button){
+    button.addEventListener('click', function(){
+      var theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = theme;
+      try { localStorage.setItem('schedule-theme', theme); } catch (_) {}
+      renderTheme();
+    });
+  });
+  renderTheme();
+})();
+</script>
+<script>
+(function(){
   "use strict";
 
   var overlay = document.getElementById('authOverlay');
@@ -1243,6 +1375,7 @@
   var registerForm = document.getElementById('registerForm');
   var forgotForm = document.getElementById('forgotForm');
   var resetForm = document.getElementById('resetForm');
+  var verifyForm = document.getElementById('verifyForm');
 
   function errorMessage(data, fallback){
     if(!data) return fallback;
@@ -1313,7 +1446,7 @@
       clearStatuses();
       try { await callback(); }
       catch (err) { setStatus(form, err.message, 'error'); }
-      finally { button.disabled = false; }
+      finally { button.disabled = form === verifyForm ? !document.getElementById('verifyToken').value : false; }
     };
   }
 
@@ -1348,7 +1481,11 @@
       })
     });
     registerForm.reset();
-    setAuthenticated(data.user);
+    document.getElementById('verifyEmail').value = data.email;
+    document.getElementById('verifyToken').value = '';
+    document.getElementById('verifyEmailBtn').disabled = true;
+    switchView('verify');
+    setStatus(verifyForm, data.message, 'success');
   }));
 
   forgotForm.addEventListener('submit', withBusy(forgotForm, async function(){
@@ -1358,14 +1495,25 @@
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({email:email})
     });
-    if(data.development_reset_token){
-      document.getElementById('resetToken').value = data.development_reset_token;
-      switchView('reset');
-      setStatus(resetForm, data.message, 'success');
-      return;
-    }
     setStatus(forgotForm, data.message, 'success');
   }));
+
+  verifyForm.addEventListener('submit', withBusy(verifyForm, async function(){
+    var data = await api('/api/auth/verify-email', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:document.getElementById('verifyToken').value})});
+    document.getElementById('verifyToken').value = '';
+    switchView('login');
+    setStatus(loginForm, data.message, 'success');
+  }));
+  document.getElementById('resendVerifyBtn').addEventListener('click', async function(){
+    var button = this; button.disabled = true;
+    try {
+      var data = await api('/api/auth/resend-verification', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:document.getElementById('verifyEmail').value})});
+      setStatus(verifyForm, data.message, 'success');
+    } catch(err){ setStatus(verifyForm, err.message, 'error'); }
+    finally { button.disabled = false; }
+  });
 
   resetForm.addEventListener('submit', withBusy(resetForm, async function(){
     var password = document.getElementById('resetPassword').value;
@@ -1391,6 +1539,16 @@
   });
 
   async function bootstrapAuth(){
+    var verifyPrefix = '#verify-token=';
+    if(window.location.hash.indexOf(verifyPrefix) === 0){
+      var token = '';
+      try { token = decodeURIComponent(window.location.hash.slice(verifyPrefix.length)); } catch(_err) {}
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      document.getElementById('verifyToken').value = token;
+      document.getElementById('verifyEmailBtn').disabled = !token;
+      setUnauthenticated('verify');
+      return;
+    }
     var resetPrefix = '#reset-token=';
     if(window.location.hash.indexOf(resetPrefix) === 0){
       try {
@@ -1426,48 +1584,20 @@
   var uidCounter = 1;
   function uid(){ return 'id' + (uidCounter++); }
 
-  function mkMeeting(days, start, end){ return {id: uid(), days: days.slice(), start: start, end: end}; }
+  function mkMeeting(days, start, end, weekPattern){ return {id: uid(), days: days.slice(), start: start, end: end, week_pattern: weekPattern || 'every_week'}; }
   function mkSlot(label, meetings){ return {id: uid(), label: label, meetings: meetings}; }
   function mkCourse(name, color, lectures, practices, code){
     return {id:uid(), code:code || '', name:name, color:color, lectures:lectures, practices:practices || []};
   }
 
   var state = {
-    courses: [
-      mkCourse('Calculus II', PALETTE[0],
-        [
-          mkSlot('Lecture 01', [ mkMeeting(['Mon','Wed','Fri'], '09:00', '09:50') ]),
-          mkSlot('Lecture 02', [ mkMeeting(['Tue','Thu'], '09:30', '10:45') ])
-        ],
-        [
-          mkSlot('Practice 01', [ mkMeeting(['Thu'], '15:00', '15:50') ]),
-          mkSlot('Practice 02', [ mkMeeting(['Fri'], '10:00', '10:50') ])
-        ]
-      ),
-      mkCourse('Data Structures', PALETTE[1],
-        [
-          mkSlot('Lecture 01', [ mkMeeting(['Mon','Wed','Fri'], '09:00', '09:50') ]),
-          mkSlot('Lecture 02', [ mkMeeting(['Tue','Thu'], '12:30', '13:45') ])
-        ],
-        [
-          mkSlot('Practice 01', [ mkMeeting(['Wed'], '16:00', '16:50') ])
-        ]
-      ),
-      mkCourse('Intro to Psychology', PALETTE[2],
-        [
-          mkSlot('Lecture 01', [ mkMeeting(['Mon','Wed'], '11:00', '12:15') ]),
-          mkSlot('Lecture 02', [ mkMeeting(['Fri'], '13:00', '15:00') ])
-        ],
-        []
-      )
-    ],
+    courses: [],
     results: [],   // array of picks: [{course, lecture, practice}, ...]
     currentIndex: 0,
     searched: false,
     truncated: false,
     combosChecked: 0
   };
-  var defaultCoursesSnapshot = JSON.stringify(state.courses);
   var curriculumCatalog = [];
   var curriculumByCode = Object.create(null);
   var curriculumByName = Object.create(null);
@@ -1534,10 +1664,6 @@
     };
   }
 
-  function nextColor(){
-    return PALETTE[(state.courses.length) % PALETTE.length];
-  }
-
   // ---------- time helpers ----------
   function toMinutes(hhmm){
     var parts = hhmm.split(':');
@@ -1554,17 +1680,94 @@
   // ============================================================
   // SIDEBAR RENDERING
   // ============================================================
-  var courseListEl = document.getElementById('courseList');
-  var curriculumCourseOptionsEl = document.getElementById('curriculumCourseOptions');
+  var semesterSelect = document.getElementById('semesterSelect');
+  var semesterCoursesEl = document.getElementById('semesterCourses');
+  var dayOffSelect = document.getElementById('dayOffSelect');
+
+  function courseSemester(course){ return course.selected_semester || course.semester; }
+
+  function renderSemesterCourses(){
+    var semester = Number(semesterSelect.value);
+    semesterCoursesEl.innerHTML = '';
+    curriculumCatalog.filter(function(course){
+      return courseSemester(course) === semester || (course.kind === 'elective'
+        && (course.eligible_slots || []).some(function(slot){
+          return Number((String(slot).match(/\d+/) || [])[0]) === semester;
+        }));
+    }).forEach(function(course){
+      var label = document.createElement('label');
+      label.className = 'semester-course';
+      var input = document.createElement('input');
+      input.type = 'checkbox'; input.value = course.code;
+      input.checked = course.kind === 'required' || (course.selected_in_curriculum && courseSemester(course) === semester);
+      input.disabled = !course.schedule || !Array.isArray(course.schedule.lecture_sections);
+      if(input.disabled) input.checked = false;
+      var copy = document.createElement('span');
+      copy.textContent = course.code + ' · ' + course.name + ' (' + course.credits + ' ECTS)'
+        + (course.kind === 'elective' ? ' · elective' : '')
+        + (input.disabled ? ' · no section times' : '');
+      label.append(input, copy); semesterCoursesEl.appendChild(label);
+    });
+    updateSelectedCourses();
+  }
+
+  function importedSlot(section, lectureSection){
+    var slot = mkSlot(section.section, (section.meetings || []).map(function(meeting){
+      return mkMeeting([DAYS[Number(meeting.day_of_week) - 1]], meeting.start_time, meeting.end_time, meeting.week_pattern);
+    }));
+    slot.section = section.section;
+    slot.lecture_section = lectureSection || null;
+    slot.quota = section.quota;
+    slot.count = section.count || 0;
+    slot.reserved = section.reserved || 0;
+    slot.available_places = section.available_places;
+    slot.availability = section.availability;
+    slot.requiresPractice = Array.isArray(section.practice_sections) && section.practice_sections.length > 0;
+    return slot;
+  }
+
+  function importScheduledCourse(raw, color){
+    var lectures = [], practices = [];
+    (raw.schedule.lecture_sections || []).forEach(function(section){
+      lectures.push(importedSlot(section));
+      (section.practice_sections || []).forEach(function(practice){
+        practices.push(importedSlot(practice, section.section));
+      });
+    });
+    return mkCourse(raw.name, color, lectures, practices, raw.code);
+  }
+
+  semesterSelect.addEventListener('change', renderSemesterCourses);
+  function selectedCurriculumCourses(){
+    return Array.from(semesterCoursesEl.querySelectorAll('input:checked')).filter(function(input){
+      return !input.disabled && curriculumByCode[input.value] && curriculumByCode[input.value].schedule;
+    }).map(function(input, index){
+      return importScheduledCourse(curriculumByCode[input.value], PALETTE[index % PALETTE.length]);
+    });
+  }
+
+  function updateSelectedCourses(){
+    state.courses = selectedCurriculumCourses();
+    state.results = []; state.searched = false; state.currentIndex = 0;
+    state.truncated = false; state.combosChecked = 0;
+    statusLine.className = 'status-line';
+    statusLine.textContent = state.courses.length + ' courses selected.';
+    renderBoard();
+  }
+
+  semesterCoursesEl.addEventListener('change', updateSelectedCourses);
+  dayOffSelect.addEventListener('change', updateSelectedCourses);
 
   function setCurriculumCatalog(curriculum){
     curriculumCatalog = [];
     curriculumByCode = Object.create(null);
     curriculumByName = Object.create(null);
     curriculumLoaded = Boolean(curriculum);
-    curriculumCourseOptionsEl.innerHTML = '';
     if(!curriculum || !Array.isArray(curriculum.categories)){
-      renderSidebar();
+      semesterSelect.innerHTML = '<option>No curriculum semesters available</option>';
+      semesterSelect.disabled = true;
+      semesterCoursesEl.innerHTML = '';
+      updateSelectedCourses();
       return;
     }
     curriculum.categories.forEach(function(category){
@@ -1574,13 +1777,18 @@
         curriculumByName[String(course.name || '').trim().toLowerCase()] = course;
       });
     });
-    curriculumCatalog.forEach(function(course){
-      var option = document.createElement('option');
-      option.value = course.code;
-      option.label = course.name + (course.semester ? ' · семестр ' + course.semester : '');
-      curriculumCourseOptionsEl.appendChild(option);
+    var previousSemester = Number(semesterSelect.value);
+    var semesters = Array.from(new Set(curriculumCatalog.map(courseSemester).filter(Boolean))).sort(function(a,b){ return a-b; });
+    semesterSelect.innerHTML = '';
+    semesters.forEach(function(semester){
+      var option = document.createElement('option'); option.value = semester; option.textContent = 'Semester ' + semester;
+      semesterSelect.appendChild(option);
     });
-    renderSidebar();
+    var currentCourse = curriculumCatalog.find(function(course){ return course.in_progress && courseSemester(course); });
+    semesterSelect.value = semesters.indexOf(previousSemester) !== -1 ? previousSemester
+      : currentCourse ? courseSemester(currentCourse) : semesters[0];
+    semesterSelect.disabled = !semesters.length;
+    renderSemesterCourses();
   }
 
   async function loadCurriculumForPrerequisites(){
@@ -1593,242 +1801,6 @@
       console.error('Не удалось загрузить куррикулум для проверки пререквизитов:', err);
     }
   }
-
-  function renderSidebar(){
-    courseListEl.innerHTML = '';
-    state.courses.forEach(function(course){
-      courseListEl.appendChild(renderCourseCard(course));
-    });
-  }
-
-  function renderCourseCard(course){
-    var initialCatalogMatch = curriculumCourseFor(course);
-    if(initialCatalogMatch && !course.code) course.code = initialCatalogMatch.code;
-    var card = document.createElement('div');
-    card.className = 'course-card';
-
-    var head = document.createElement('div');
-    head.className = 'course-card-head';
-
-    var swatch = document.createElement('div');
-    swatch.className = 'swatch';
-    swatch.style.background = course.color;
-
-    var nameInput = document.createElement('input');
-    nameInput.className = 'course-name-input';
-    nameInput.value = course.name;
-    nameInput.placeholder = 'Course name';
-    nameInput.addEventListener('input', function(){
-      course.name = nameInput.value;
-      if(!course.code){
-        var matchByName = curriculumByName[String(course.name || '').trim().toLowerCase()];
-        if(matchByName){
-          course.code = matchByName.code;
-          codeInput.value = matchByName.code;
-        }
-      }
-      updatePrerequisiteCheck();
-    });
-
-    var removeBtn = document.createElement('button');
-    removeBtn.className = 'icon-btn';
-    removeBtn.title = 'Remove course';
-    removeBtn.textContent = '✕';
-    removeBtn.addEventListener('click', function(){
-      state.courses = state.courses.filter(function(c){ return c.id !== course.id; });
-      renderSidebar();
-    });
-
-    head.appendChild(swatch);
-    head.appendChild(nameInput);
-    head.appendChild(removeBtn);
-    card.appendChild(head);
-
-    var codeRow = document.createElement('div');
-    codeRow.className = 'course-code-row';
-    var codeLabel = document.createElement('span');
-    codeLabel.className = 'course-code-label';
-    codeLabel.textContent = 'КОД';
-    var codeInput = document.createElement('input');
-    codeInput.className = 'course-code-input';
-    codeInput.setAttribute('list', 'curriculumCourseOptions');
-    codeInput.value = course.code || '';
-    codeInput.placeholder = 'Например, CSS 215';
-    codeInput.setAttribute('aria-label', 'Код дисциплины');
-    codeRow.appendChild(codeLabel);
-    codeRow.appendChild(codeInput);
-    card.appendChild(codeRow);
-
-    var prerequisiteBox = document.createElement('div');
-    prerequisiteBox.setAttribute('role', 'status');
-    prerequisiteBox.setAttribute('aria-live', 'polite');
-    card.appendChild(prerequisiteBox);
-
-    function updatePrerequisiteCheck(){
-      var check = prerequisiteCheckFor(course);
-      var hasError = Boolean(check && check.type === 'warning');
-      prerequisiteBox.textContent = check ? check.message : '';
-      prerequisiteBox.className = 'prerequisite-check' + (check ? ' visible ' + check.type : '');
-      card.classList.toggle('has-prerequisite-error', hasError);
-      codeInput.setAttribute('aria-invalid', hasError ? 'true' : 'false');
-    }
-
-    codeInput.addEventListener('input', function(){
-      course.code = normalizeCourseCode(codeInput.value);
-      var matchedCourse = curriculumByCode[course.code];
-      if(matchedCourse){
-        course.code = matchedCourse.code;
-        course.name = matchedCourse.name;
-        codeInput.value = matchedCourse.code;
-        nameInput.value = matchedCourse.name;
-      }
-      updatePrerequisiteCheck();
-    });
-    updatePrerequisiteCheck();
-
-    card.appendChild(renderSlotGroup(course, 'lecture', 'Lectures', course.lectures, function(){
-      course.lectures.push(mkSlot('Lecture ' + (course.lectures.length+1), [ mkMeeting(['Mon'], '09:00', '09:50') ]));
-      renderSidebar();
-    }));
-
-    card.appendChild(renderSlotGroup(course, 'practice', 'Practices', course.practices, function(){
-      course.practices.push(mkSlot('Practice ' + (course.practices.length+1), [ mkMeeting(['Mon'], '15:00', '15:50') ]));
-      renderSidebar();
-    }));
-
-    return card;
-  }
-
-  function renderSlotGroup(course, kind, groupLabel, slots, onAdd){
-    var group = document.createElement('div');
-    group.className = 'slot-group';
-
-    var label = document.createElement('p');
-    label.className = 'slot-group-label ' + kind;
-    label.innerHTML = '<span class="tag-dot"></span>' + groupLabel;
-    group.appendChild(label);
-
-    if(slots.length === 0){
-      var note = document.createElement('p');
-      note.className = 'empty-slot-note';
-      note.textContent = kind === 'practice' ? 'No practice session for this course.' : 'No lectures added yet.';
-      group.appendChild(note);
-    }
-
-    slots.forEach(function(slot){
-      group.appendChild(renderSlotBlock(course, slots, slot));
-    });
-
-    var addBtn = document.createElement('button');
-    addBtn.className = 'add-section-btn';
-    addBtn.textContent = '+ Add ' + (kind === 'practice' ? 'practice' : 'lecture');
-    addBtn.addEventListener('click', onAdd);
-    group.appendChild(addBtn);
-
-    return group;
-  }
-
-  function renderSlotBlock(course, slotArray, slot){
-    var block = document.createElement('div');
-    block.className = 'section-block';
-
-    var sHead = document.createElement('div');
-    sHead.className = 'section-head';
-
-    var labelInput = document.createElement('input');
-    labelInput.className = 'section-label-input';
-    labelInput.value = slot.label;
-    labelInput.addEventListener('input', function(){ slot.label = labelInput.value; });
-
-    var removeSlotBtn = document.createElement('button');
-    removeSlotBtn.className = 'icon-btn';
-    removeSlotBtn.title = 'Remove';
-    removeSlotBtn.textContent = '✕';
-    removeSlotBtn.addEventListener('click', function(){
-      var idx = slotArray.indexOf(slot);
-      if(idx > -1) slotArray.splice(idx,1);
-      renderSidebar();
-    });
-
-    sHead.appendChild(labelInput);
-    sHead.appendChild(removeSlotBtn);
-    block.appendChild(sHead);
-
-    slot.meetings.forEach(function(meeting){
-      block.appendChild(renderMeetingRow(slot, meeting));
-    });
-
-    var addMeetingBtn = document.createElement('button');
-    addMeetingBtn.className = 'add-meeting-btn';
-    addMeetingBtn.textContent = '+ Add meeting time';
-    addMeetingBtn.addEventListener('click', function(){
-      slot.meetings.push(mkMeeting(['Mon'], '09:00', '09:50'));
-      renderSidebar();
-    });
-    block.appendChild(addMeetingBtn);
-
-    return block;
-  }
-
-  function renderMeetingRow(slot, meeting){
-    var row = document.createElement('div');
-    row.className = 'meeting-row';
-
-    var toggles = document.createElement('div');
-    toggles.className = 'day-toggles';
-    DAYS.forEach(function(day){
-      var btn = document.createElement('button');
-      btn.className = 'day-btn' + (meeting.days.indexOf(day) > -1 ? ' on' : '');
-      btn.textContent = DAY_ABBR[day];
-      btn.type = 'button';
-      btn.addEventListener('click', function(){
-        var idx = meeting.days.indexOf(day);
-        if(idx > -1){ meeting.days.splice(idx,1); } else { meeting.days.push(day); }
-        renderSidebar();
-      });
-      toggles.appendChild(btn);
-    });
-
-    var startInput = document.createElement('input');
-    startInput.type = 'time';
-    startInput.className = 'time-input';
-    startInput.value = meeting.start;
-    startInput.addEventListener('input', function(){ meeting.start = startInput.value; });
-
-    var sep = document.createElement('span');
-    sep.className = 'time-sep';
-    sep.textContent = '–';
-
-    var endInput = document.createElement('input');
-    endInput.type = 'time';
-    endInput.className = 'time-input';
-    endInput.value = meeting.end;
-    endInput.addEventListener('input', function(){ meeting.end = endInput.value; });
-
-    var removeMeetingBtn = document.createElement('button');
-    removeMeetingBtn.className = 'remove-meeting';
-    removeMeetingBtn.textContent = '✕';
-    removeMeetingBtn.title = 'Remove meeting time';
-    removeMeetingBtn.addEventListener('click', function(){
-      slot.meetings = slot.meetings.filter(function(m){ return m.id !== meeting.id; });
-      renderSidebar();
-    });
-
-    row.appendChild(toggles);
-    row.appendChild(startInput);
-    row.appendChild(sep);
-    row.appendChild(endInput);
-    row.appendChild(removeMeetingBtn);
-    return row;
-  }
-
-  document.getElementById('addCourseBtn').addEventListener('click', function(){
-    state.courses.push(mkCourse('New course', nextColor(),
-      [ mkSlot('Lecture 01', [ mkMeeting(['Mon'], '09:00', '09:50') ]) ],
-      []
-    ));
-    renderSidebar();
-  });
 
   // ============================================================
   // SCHEDULE GENERATION (backtracking with early pruning)
@@ -1847,45 +1819,106 @@
       var s = toMinutes(meeting.start);
       var e = toMinutes(meeting.end);
       meeting.days.forEach(function(day){
-        mm.push({day: day, start: s, end: e});
+        mm.push({day: day, start: s, end: e, week_pattern: meeting.week_pattern || 'every_week'});
       });
     });
     slot.__mm = mm;
     return mm;
   }
 
+  function weeksOverlap(a,b){
+    var left = a.week_pattern || 'every_week', right = b.week_pattern || 'every_week';
+    return left === 'every_week' || right === 'every_week' || left === right;
+  }
+
   function hasInternalOverlap(mm){
     for(var i=0;i<mm.length;i++){
       for(var j=i+1;j<mm.length;j++){
-        if(mm[i].day === mm[j].day && overlaps(mm[i].start, mm[i].end, mm[j].start, mm[j].end)) return true;
+        if(mm[i].day === mm[j].day && weeksOverlap(mm[i], mm[j]) && overlaps(mm[i].start, mm[i].end, mm[j].start, mm[j].end)) return true;
       }
     }
     return false;
   }
 
+  function availableSeats(slot){
+    if(slot.quota === undefined || slot.quota === null) return Infinity;
+    var calculated = Math.max(0, Number(slot.quota) - Number(slot.count || 0) - Number(slot.reserved || 0));
+    return slot.available_places === undefined || slot.available_places === null
+      ? calculated : Math.min(calculated, Number(slot.available_places));
+  }
+
+  function sectionAvailable(slot){
+    return availableSeats(slot) > 0 && (!slot.availability || String(slot.availability).toLowerCase() === 'available');
+  }
+
   function buildCourseOptions(course){
-    var practiceChoices = course.practices.length ? course.practices : [null];
     var options = [];
     course.lectures.forEach(function(lecture){
+      if(!sectionAvailable(lecture)) return;
+      var practiceChoices = course.practices.filter(function(practice){
+        return sectionAvailable(practice) && (!practice.lecture_section || practice.lecture_section === lecture.section);
+      });
+      if(!practiceChoices.length && !lecture.requiresPractice && !course.practices.length) practiceChoices = [null];
       var lecMM = meetingsInMinutes(lecture);
       practiceChoices.forEach(function(practice){
         var mm = practice ? lecMM.concat(meetingsInMinutes(practice)) : lecMM.slice();
-        if(hasInternalOverlap(mm)) return; // lecture and practice can't happen at the same time
+        if(hasInternalOverlap(mm)) return;
         options.push({lecture: lecture, practice: practice, mm: mm});
       });
     });
     return options;
   }
 
-  function generateSchedules(courses){
-    var results = [];
+  function scheduleQuality(picks){
+    var odd = qualityForWeek(picks, 'odd_weeks'), even = qualityForWeek(picks, 'even_weeks');
+    return {score:(odd.score + even.score)/2, gaps:(odd.gaps + even.gaps)/2,
+      longestGap:Math.max(odd.longestGap, even.longestGap),
+      sparseDays:Math.max(odd.sparseDays, even.sparseDays), classDays:Math.max(odd.classDays, even.classDays)};
+  }
+
+  function qualityForWeek(picks, week){
+    var byDay = {};
+    DAYS.forEach(function(day){ byDay[day] = []; });
+    picks.forEach(function(pick){
+      meetingsInMinutes(pick.lecture).forEach(function(meeting){ if(weeksOverlap(meeting, {week_pattern:week})) byDay[meeting.day].push(meeting); });
+      if(pick.practice) meetingsInMinutes(pick.practice).forEach(function(meeting){ if(weeksOverlap(meeting, {week_pattern:week})) byDay[meeting.day].push(meeting); });
+    });
+    var gaps = 0, longGaps = 0, longestGap = 0, sparseDays = 0, sparsePenalty = 0, classDays = 0;
+    DAYS.forEach(function(day){
+      var lessons = byDay[day].sort(function(a,b){ return a.start - b.start; });
+      if(!lessons.length) return;
+      classDays++;
+      if(lessons.length < 3){ sparseDays++; sparsePenalty += (3 - lessons.length) * 90; }
+      for(var i=1; i<lessons.length; i++){
+        var gap = Math.max(0, lessons[i].start - lessons[i-1].end);
+        gaps += gap;
+        longGaps += Math.max(0, gap - 60);
+        longestGap = Math.max(longestGap, gap);
+      }
+    });
+    return {score:gaps + longGaps * 2 + sparsePenalty, gaps:gaps,
+      longestGap:longestGap, sparseDays:sparseDays, classDays:classDays};
+  }
+
+  function compareQuality(a,b){
+    return a.score - b.score || a.longestGap - b.longestGap
+      || a.sparseDays - b.sparseDays || a.classDays - b.classDays;
+  }
+
+  function generateSchedules(courses, dayOff){
+    var ranked = [];
+    var totalFound = 0;
     var nodesExplored = 0;
     var truncated = false;
 
     var busyByDay = {};
     DAYS.forEach(function(d){ busyByDay[d] = []; });
 
-    var courseOptions = courses.map(buildCourseOptions);
+    var courseOptions = courses.map(function(course){
+      return buildCourseOptions(course).filter(function(option){
+        return !dayOff || !option.mm.some(function(meeting){ return meeting.day === dayOff; });
+      });
+    });
     var picks = new Array(courses.length);
 
     function fits(mm){
@@ -1893,7 +1926,7 @@
         var m = mm[i];
         var list = busyByDay[m.day];
         for(var j=0;j<list.length;j++){
-          if(overlaps(m.start, m.end, list[j].start, list[j].end)) return false;
+          if(weeksOverlap(m, list[j]) && overlaps(m.start, m.end, list[j].start, list[j].end)) return false;
         }
       }
       return true;
@@ -1907,10 +1940,21 @@
 
     function backtrack(courseIndex){
       if(truncated) return;
-      if(results.length >= RESULT_CAP){ truncated = true; return; }
 
       if(courseIndex === courses.length){
-        results.push(picks.slice());
+        totalFound++;
+        var entry = {picks:picks.slice(), quality:scheduleQuality(picks)};
+        // Keep the best results across the entire bounded search, not just its first matches.
+        var low = 0, high = ranked.length;
+        while(low < high){
+          var middle = Math.floor((low + high) / 2);
+          if(compareQuality(entry.quality, ranked[middle].quality) < 0) high = middle;
+          else low = middle + 1;
+        }
+        if(low < RESULT_CAP){
+          ranked.splice(low, 0, entry);
+          if(ranked.length > RESULT_CAP) ranked.pop();
+        }
         return;
       }
 
@@ -1931,9 +1975,10 @@
       }
     }
 
-    backtrack(0);
+    if(courses.length) backtrack(0);
 
-    return {results: results, nodesExplored: nodesExplored, truncated: truncated};
+    return {results:ranked.map(function(entry){ return entry.picks; }),
+      totalFound:totalFound, nodesExplored:nodesExplored, truncated:truncated};
   }
 
  // ============================================================
@@ -1944,6 +1989,8 @@
   document.getElementById('generateBtn').addEventListener('click', async function(){ // <--- добавили async
     statusLine.className = 'status-line';
     statusLine.textContent = '';
+    // Always rebuild from the fixed curriculum sections, never saved/edited times.
+    state.courses = selectedCurriculumCourses();
 
     var prerequisiteProblems = state.courses.map(function(course){
       return {course:course, check:prerequisiteCheckFor(course)};
@@ -1977,13 +2024,6 @@
       statusLine.textContent = 'Add at least one lecture to "' + (badCourse.name || 'Untitled course') + '".';
       return;
     }
-
-    var badCourse = state.courses.find(function(c){ return c.lectures.length === 0; });
-    if(badCourse){
-      statusLine.className = 'status-line error';
-      statusLine.textContent = 'Add at least one lecture to "' + (badCourse.name || 'Untitled course') + '".';
-      return;
-    }
     var badMeeting = null;
     state.courses.forEach(function(c){
       c.lectures.concat(c.practices).forEach(function(s){
@@ -2001,14 +2041,22 @@
     }
     if(state.courses.length === 0){
       statusLine.className = 'status-line error';
-      statusLine.textContent = 'Add at least one course to get started.';
+      statusLine.textContent = 'Select at least one course to get started.';
       return;
     }
 
     state.courses.forEach(function(c){ c.lectures.concat(c.practices).forEach(function(s){ delete s.__mm; }); });
 
+    var unavailableCourse = state.courses.find(function(course){ return buildCourseOptions(course).length === 0; });
+    if(unavailableCourse){
+      state.results = []; state.searched = false; renderBoard();
+      statusLine.className = 'status-line error';
+      statusLine.textContent = 'No available, compatible lecture/practice pair for ' + unavailableCourse.name + '. Check seat quotas and section times.';
+      return;
+    }
+
     var t0 = performance.now();
-    var out = generateSchedules(state.courses);
+    var out = generateSchedules(state.courses, dayOffSelect.value);
     var elapsedMs = performance.now() - t0;
 
     state.results = out.results;
@@ -2017,6 +2065,8 @@
     state.truncated = out.truncated;
     state.combosChecked = out.nodesExplored;
     state.elapsedMs = elapsedMs;
+    state.totalFound = out.totalFound;
+    state.dayOff = dayOffSelect.value;
 
     renderBoard();
   });
@@ -2083,7 +2133,7 @@
       empty.style.display = 'flex';
       empty.style.flexDirection = 'column';
       empty.style.justifyContent = 'center';
-      empty.innerHTML = '<div class="big">No schedules generated yet</div><div class="small">Build your course list on the left, then generate schedules. Only combinations with zero overlapping classes will be shown.</div>';
+      empty.innerHTML = '<div class="big">No schedules generated yet</div><div class="small">Select your semester and courses on the left, then generate schedules. Only combinations with zero overlapping classes will be shown.</div>';
       boardBodyEl.appendChild(empty);
       return;
     }
@@ -2102,7 +2152,10 @@
       empty2.style.display = 'flex';
       empty2.style.flexDirection = 'column';
       empty2.style.justifyContent = 'center';
-      empty2.innerHTML = '<div class="big">No conflict-free schedule exists</div><div class="small">Every combination of your lectures and practices overlaps somewhere. Try adding an alternate lecture or practice time, or adjusting a meeting time.</div>';
+      empty2.innerHTML = '<div class="big">No matching schedule found</div><div class="small">'
+        + (state.dayOff ? 'No schedule was found that keeps ' + state.dayOff + ' free. Choose another day off or change your course selection.'
+          : 'No conflict-free combination was found for these courses. Try changing your course selection.')
+        + (state.truncated ? ' The search reached its limit; other combinations may exist.' : '') + '</div>';
       boardBodyEl.appendChild(empty2);
       return;
     }
@@ -2112,6 +2165,11 @@
 
     boardCounterEl.innerHTML = 'Schedule ' + (state.currentIndex + 1) + '<span class="of"> of ' + total + '</span>';
     var note = state.combosChecked + ' combinations checked in ' + Math.round(state.elapsedMs) + 'ms';
+    var quality = scheduleQuality(state.results[state.currentIndex]);
+    note += ' · ' + quality.gaps + ' min total gaps · longest gap ' + quality.longestGap
+      + ' min · ' + quality.sparseDays + ' days with 1–2 lessons';
+    if(state.dayOff) note += ' · ' + state.dayOff + ' off';
+    if(state.totalFound > total) note += ' · showing the best ' + total + ' of ' + state.totalFound + ' found';
     if(state.truncated) note += ' — search limited by budget, showing schedules found so far';
     searchNoteEl.textContent = note;
 
@@ -2125,84 +2183,19 @@
   }
 
   function renderGrid(picks){
-    var wrap = document.createElement('div');
-    wrap.className = 'board-scroll';
-
-    var days = daysUsedByPicks(picks);
-    var range = timeRangeByPicks(picks);
-    var pxPerMin = 1.05;
-    var hourPx = 60 * pxPerMin;
-    var totalHeight = (range.max - range.min) * pxPerMin;
-
-    var grid = document.createElement('div');
-    grid.className = 'board-grid';
-    grid.style.gridTemplateColumns = '60px repeat(' + days.length + ', minmax(90px, 1fr))';
-
-    var headerRow = document.createElement('div');
-    headerRow.className = 'day-header-row';
-    headerRow.style.gridColumn = '1 / -1';
-    headerRow.style.display = 'grid';
-    headerRow.style.gridTemplateColumns = '60px repeat(' + days.length + ', minmax(90px, 1fr))';
-
-    var corner = document.createElement('div');
-    headerRow.appendChild(corner);
-    days.forEach(function(d){
-      var cell = document.createElement('div');
-      cell.className = 'day-header-cell';
-      cell.textContent = d;
-      headerRow.appendChild(cell);
-    });
-    grid.appendChild(headerRow);
-
-    var bodyRow = document.createElement('div');
-    bodyRow.className = 'grid-body-row';
-    bodyRow.style.gridColumn = '1 / -1';
-    bodyRow.style.display = 'grid';
-    bodyRow.style.gridTemplateColumns = '60px repeat(' + days.length + ', minmax(90px, 1fr))';
-
-    var timeAxis = document.createElement('div');
-    timeAxis.className = 'time-axis';
-    timeAxis.style.height = totalHeight + 'px';
-    for(var t = range.min; t <= range.max; t += 60){
-      var label = document.createElement('div');
-      label.className = 'time-label';
-      label.style.top = ((t - range.min) * pxPerMin) + 'px';
-      label.textContent = fmtTime((Math.floor(t/60) < 10 ? '0' : '') + Math.floor(t/60) + ':00');
-      timeAxis.appendChild(label);
-    }
-    bodyRow.appendChild(timeAxis);
-
-    days.forEach(function(day){
-      var col = document.createElement('div');
-      col.className = 'day-col';
-      col.style.height = totalHeight + 'px';
-      col.style.setProperty('--hour-px', hourPx + 'px');
-
-      picks.forEach(function(p){
-        pickSlots(p).forEach(function(entry){
-          entry.slot.meetings.forEach(function(m){
-            if(m.days.indexOf(day) === -1) return;
-            var s = toMinutes(m.start), e = toMinutes(m.end);
-            var block = document.createElement('div');
-            block.className = 'class-block' + (entry.type === 'practice' ? ' is-practice' : '');
-            block.style.background = p.course.color;
-            block.style.top = ((s - range.min) * pxPerMin) + 'px';
-            block.style.height = Math.max((e - s) * pxPerMin - 2, 20) + 'px';
-            block.innerHTML = '<span class="ctype">' + entry.type + '</span>' +
-                               '<span class="cname">' + escapeHtml(p.course.name || 'Untitled') + '</span>' +
-                               '<span class="cmeta">' + escapeHtml(entry.slot.label || '') + '</span>' +
-                               '<span class="cmeta">' + fmtTime(m.start) + '–' + fmtTime(m.end) + '</span>';
-            col.appendChild(block);
+    var events = [];
+    picks.forEach(function(pick){
+      pickSlots(pick).forEach(function(entry){
+        entry.slot.meetings.forEach(function(meeting){
+          meeting.days.forEach(function(day){
+            events.push({day:day, start:meeting.start, end:meeting.end,
+              week_pattern:meeting.week_pattern, name:pick.course.name,
+              section:entry.slot.label, type:entry.type, color:pick.course.color});
           });
         });
       });
-
-      bodyRow.appendChild(col);
     });
-
-    grid.appendChild(bodyRow);
-    wrap.appendChild(grid);
-    return wrap;
+    return window.ScheduleTimetable.render(events, 'Расписание по времени занятий');
   }
 
   function renderLegend(picks){
@@ -2218,7 +2211,8 @@
         var label = document.createElement('span');
         label.innerHTML = '<span class="legend-type">' + entry.type + '</span> &nbsp;<b>' + escapeHtml(p.course.name || 'Untitled') + '</b> — ' + escapeHtml(entry.slot.label || '');
         var timeSummary = entry.slot.meetings.map(function(m){
-          return m.days.map(function(d){ return DAY_ABBR[d]; }).join('') + ' ' + fmtTime(m.start) + '–' + fmtTime(m.end);
+          return m.days.map(function(d){ return DAY_ABBR[d]; }).join('') + ' ' + fmtTime(m.start) + '–' + fmtTime(m.end)
+            + (m.week_pattern && m.week_pattern !== 'every_week' ? ' (' + window.ScheduleTimetable.weekLabel(m.week_pattern) + ')' : '');
         }).join(', ');
         var time = document.createElement('span');
         time.className = 'legend-time';
@@ -2252,36 +2246,35 @@
 
   async function loadCoursesFromBackend() {
     try {
+      await loadCurriculumForPrerequisites();
       const res = await fetch('/api/courses');
       if (!res.ok) return;
       const data = await res.json();
       if (data && data.length > 0) {
-        state.courses = data;
-      } else {
-        state.courses = JSON.parse(defaultCoursesSnapshot);
+        var savedCodes = new Set(data.map(function(course){ return normalizeCourseCode(course.code); }));
+        var savedCourse = data.map(function(course){ return curriculumByCode[normalizeCourseCode(course.code)]; })
+          .find(function(course){ return course && courseSemester(course); });
+        if(savedCourse){
+          semesterSelect.value = courseSemester(savedCourse);
+          renderSemesterCourses();
+        }
+        semesterCoursesEl.querySelectorAll('input').forEach(function(input){
+          input.checked = !input.disabled && savedCodes.has(normalizeCourseCode(input.value));
+        });
       }
-      state.results = [];
-      state.currentIndex = 0;
-      state.searched = false;
-      state.truncated = false;
-      state.combosChecked = 0;
-      renderSidebar();
-      renderBoard();
+      updateSelectedCourses();
     } catch (err) {
       console.error("Ошибка загрузки с бэкенда:", err);
     }
   }
   window.addEventListener('auth:ready', loadCoursesFromBackend);
-  window.addEventListener('auth:ready', loadCurriculumForPrerequisites);
   window.addEventListener('curriculum:updated', function(event){
     setCurriculumCatalog(event.detail && event.detail.curriculum || null);
   });
   if(window.scheduleCurrentUser) loadCoursesFromBackend();
-  if(window.scheduleCurrentUser) loadCurriculumForPrerequisites();
   // ============================
 
   // init
-  renderSidebar();
   renderBoard();
 })();
 </script>
@@ -2295,23 +2288,13 @@
 (function(){
   "use strict";
 
-  // ---------- Tab switching (shared chrome only, no US1 logic touched) ----------
-  var tabScheduleBtn = document.getElementById('tabScheduleBtn');
-  var tabDegreeBtn = document.getElementById('tabDegreeBtn');
-  var paneSchedule = document.getElementById('paneSchedule');
-  var paneDegree = document.getElementById('paneDegree');
-
-  tabScheduleBtn.addEventListener('click', function(){
-    tabScheduleBtn.classList.add('active');
-    tabDegreeBtn.classList.remove('active');
-    paneSchedule.classList.add('active');
-    paneDegree.classList.remove('active');
-  });
-  tabDegreeBtn.addEventListener('click', function(){
-    tabDegreeBtn.classList.add('active');
-    tabScheduleBtn.classList.remove('active');
-    paneDegree.classList.add('active');
-    paneSchedule.classList.remove('active');
+  ['Schedule','Degree','Waitlist'].forEach(function(name){
+    document.getElementById('tab' + name + 'Btn').addEventListener('click', function(){
+      ['Schedule','Degree','Waitlist'].forEach(function(other){
+        document.getElementById('tab' + other + 'Btn').classList.toggle('active', name === other);
+        document.getElementById('pane' + other).classList.toggle('active', name === other);
+      });
+    });
   });
 
   // ---------- Test data generators (stand-ins for real integrations) ----------
@@ -2714,6 +2697,7 @@
       && raw.selected_semester !== '' && Number.isInteger(selectedSemester) && selectedSemester > 0
       ? selectedSemester
       : null;
+    course.schedule = raw.schedule || null;
     return course;
   }
 
@@ -3188,7 +3172,7 @@
     var file = curriculumFileInput.files && curriculumFileInput.files[0];
     if(!file) return;
     try {
-      if(file.size > 1024 * 1024) throw new Error('Файл слишком большой. Максимальный размер — 1 МБ.');
+      if(file.size > 5 * 1024 * 1024) throw new Error('Файл слишком большой. Максимальный размер — 5 МБ.');
       setCurriculumStatus('Читаем и проверяем файл…', 'loading');
       var text = await file.text();
       var payload = parseCurriculumFile(file, text);
@@ -3232,5 +3216,190 @@
 })();
 </script>
 
+<div class="view-pane" id="paneWaitlist">
+  <div class="degree-app">
+    <div class="degree-sidebar">
+      <div class="brand"><span class="mark">03</span></div>
+      <h1 class="title">Course waitlists</h1>
+      <p class="subtitle">Join the queue for a fixed lecture and practice. When both have a seat, enrollment follows queue order.</p>
+      <p class="semester-note" id="waitlistConnection"></p>
+      <label class="section-label" for="waitlistCourse">COURSE</label>
+      <select class="waitlist-select" id="waitlistCourse"></select>
+      <label class="section-label" for="waitlistLecture">LECTURE</label>
+      <select class="waitlist-select" id="waitlistLecture"></select>
+      <label class="section-label" for="waitlistPractice">LINKED PRACTICE</label>
+      <select class="waitlist-select" id="waitlistPractice"></select>
+      <div id="waitlistTimes" aria-live="polite"></div>
+      <button class="generate-btn" id="joinWaitlistBtn" type="button" disabled>Join waitlist / enroll</button>
+      <div id="waitlistDemo" hidden>
+        <p class="section-label">ACADEMIC SIMULATION</p>
+        <button class="add-course-btn" id="demoSeatBtn" type="button">Simulate one seat opening</button>
+        <button class="add-course-btn" id="demoHoldBtn" type="button">Add account hold</button>
+      </div>
+      <div class="status-line" id="waitlistStatus" role="status" aria-live="polite"></div>
+    </div>
+    <div class="degree-main">
+      <p class="semester-note">Account holds and schedule conflicts keep your position and trigger a warning. Drop an enrollment to release its seats to the next eligible student.</p>
+      <h2>Выбранная квота · расписание</h2>
+      <div id="waitlistPreview" class="waitlist-preview" aria-live="polite"></div>
+      <h2 class="title">Your queue positions &amp; enrollments</h2>
+      <div id="waitlistEntries" aria-live="polite"></div>
+      <h2 class="title waitlist-log-title">Enrollment notifications</h2>
+      <div class="waitlist-log" id="waitlistNotifications" tabindex="0" aria-label="Enrollment notification log"></div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var data = null, busy = false, timer = null;
+  var courseEl = document.getElementById('waitlistCourse');
+  var lectureEl = document.getElementById('waitlistLecture');
+  var practiceEl = document.getElementById('waitlistPractice');
+  var joinBtn = document.getElementById('joinWaitlistBtn');
+  var statusEl = document.getElementById('waitlistStatus');
+  function status(message, error){
+    statusEl.className = 'status-line' + (error ? ' error' : '');
+    statusEl.textContent = message;
+  }
+  async function api(url, options){
+    var response = await fetch(url, Object.assign({credentials:'same-origin'}, options || {}));
+    var body = await response.json();
+    if(!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Unable to update your waitlist.');
+    return body;
+  }
+  function fill(select, items, label){
+    var previous = select.value;
+    select.innerHTML = '';
+    items.forEach(function(item){
+      var option = document.createElement('option'); option.value = item.section || item.code;
+      option.textContent = label(item); option.title = option.textContent; select.appendChild(option);
+    });
+    if(items.some(function(item){ return (item.section || item.code) === previous; })) select.value = previous;
+  }
+  function sections(){
+    fill(lectureEl, data.sections.filter(function(section){ return section.course === courseEl.value && !section.parent; }),
+      function(section){ return section.section + ' · ' + meetingTimes(section) + ' · ' + section.available + '/' + section.quota + ' seats'; });
+    practices();
+  }
+  function practices(){
+    fill(practiceEl, data.sections.filter(function(section){ return section.parent === lectureEl.value; }),
+      function(section){ return section.section + ' · ' + meetingTimes(section) + ' · ' + section.available + '/' + section.quota + ' seats'; });
+    var selected = data.sections.filter(function(section){ return section.section === lectureEl.value || section.section === practiceEl.value; });
+    var details = document.getElementById('waitlistTimes'); details.innerHTML = '';
+    selected.forEach(function(section){
+      row(details, (section.parent ? 'Practice · ' : 'Lecture · ') + section.section,
+        section.available + ' / ' + section.quota + ' seats available · ' + meetingTimes(section));
+    });
+    var events = [];
+    selected.forEach(function(section){
+      section.meetings.forEach(function(meeting){
+        events.push({day:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][meeting.day_of_week - 1],
+          start:meeting.start_time, end:meeting.end_time, week_pattern:meeting.week_pattern,
+          name:section.name, section:section.section, type:section.parent ? 'practice' : 'lecture',
+          color:'#f6c344', quota:section.quota, available:section.available});
+      });
+    });
+    var preview = document.getElementById('waitlistPreview'); preview.replaceChildren(
+      window.ScheduleTimetable.render(events, 'Фиксированное время выбранной лекции и практики'));
+    joinBtn.disabled = busy || !lectureEl.value || !practiceEl.value;
+    document.getElementById('demoSeatBtn').disabled = busy || !data.waitlists.some(function(entry){
+      return entry.lecture === lectureEl.value && entry.practice === practiceEl.value && entry.status !== 'enrolled';
+    });
+  }
+  function meetingTimes(section){
+    var days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    return section.meetings.map(function(meeting){
+      return days[meeting.day_of_week - 1] + ' ' + meeting.start_time + '–' + meeting.end_time
+        + (meeting.week_pattern && meeting.week_pattern !== 'every_week' ? ' (' + window.ScheduleTimetable.weekLabel(meeting.week_pattern) + ')' : '');
+    }).join(', ');
+  }
+  function sectionDetails(id){
+    var section = data.sections.find(function(item){ return item.section === id; });
+    return section ? section.section + ' (' + section.available + '/' + section.quota + ' seats) · ' + meetingTimes(section) : id;
+  }
+  function row(container, title, message, action){
+    var block = document.createElement('div'); block.className = 'waitlist-row';
+    var heading = document.createElement('strong'); heading.textContent = title;
+    var copy = document.createElement('p'); copy.textContent = message;
+    block.append(heading, copy);
+    if(action){
+      var button = document.createElement('button'); button.type = 'button'; button.className = 'nav-btn';
+      button.textContent = action.label; button.disabled = busy;
+      button.addEventListener('click', function(){ mutate(action.url, {method:'DELETE'}); });
+      block.appendChild(button);
+    }
+    container.appendChild(block);
+  }
+  function render(){
+    var courses = Array.from(new Map(data.sections.filter(function(section){ return !section.parent; })
+      .map(function(section){ return [section.course, {code:section.course, name:section.name}]; })).values());
+    fill(courseEl, courses, function(course){ return course.code + ' · ' + course.name; }); sections();
+    document.getElementById('waitlistConnection').textContent = data.mode === 'academic'
+      ? 'Academic enrollment simulation. Meeting times use Asia/Qyzylorda. Email notifications are sent to your verified address; billing remains simulated. '
+        + (data.email_configured ? '' : 'SMTP is not configured: email delivery will stay pending.')
+      : 'Term: ' + data.term + '. Local enrollment; university registration is not connected. '
+        + (data.email_configured ? '' : 'Email delivery is not connected. ')
+        + (data.billing_configured ? '' : 'Tuition adjustment delivery is not connected.');
+    document.getElementById('waitlistDemo').hidden = data.mode !== 'academic';
+    document.getElementById('demoHoldBtn').textContent = data.on_hold ? 'Clear account hold' : 'Add account hold';
+    document.getElementById('demoHoldBtn').disabled = busy;
+    var entries = document.getElementById('waitlistEntries'); entries.innerHTML = '';
+    data.waitlists.filter(function(entry){ return entry.status !== 'enrolled'; }).forEach(function(entry){
+      row(entries, entry.course + ' · queue position ' + entry.position,
+        sectionDetails(entry.lecture) + ' / ' + sectionDetails(entry.practice) + ' · ' + entry.status + (entry.reason ? ': ' + entry.reason : ''),
+        {label:'Leave waitlist', url:'/api/waitlists/' + entry.id});
+    });
+    data.enrollments.forEach(function(enrollment){
+      row(entries, enrollment.course + ' · Enrolled', sectionDetails(enrollment.lecture) + ' / ' + sectionDetails(enrollment.practice),
+        {label:'Drop enrollment', url:'/api/enrollments/' + enrollment.id});
+    });
+    if(!entries.children.length) row(entries, 'No registrations yet', 'Choose a course and sections to join.');
+    var notifications = document.getElementById('waitlistNotifications');
+    var previousScroll = notifications.scrollTop;
+    notifications.innerHTML = '';
+    data.notifications.forEach(function(notification){
+      row(notifications, (notification.channel === 'billing' ? 'Tuition adjustment' : 'Email') + ' · ' + notification.status, notification.message);
+    });
+    notifications.scrollTop = previousScroll;
+  }
+  async function refresh(){
+    if(busy) return;
+    try { data = await api('/api/waitlists'); render(); }
+    catch(err){ status(err.message, true); }
+  }
+  async function mutate(url, options){
+    if(busy) return;
+    busy = true; joinBtn.disabled = true;
+    try { data = await api(url, options); status('Registration updated.'); }
+    catch(err){ status(err.message, true); }
+    finally { busy = false; if(data) render(); }
+  }
+  courseEl.addEventListener('change', sections);
+  lectureEl.addEventListener('change', practices);
+  practiceEl.addEventListener('change', practices);
+  joinBtn.addEventListener('click', function(){
+    mutate('/api/waitlists', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lecture:lectureEl.value, practice:practiceEl.value})});
+  });
+  document.getElementById('demoSeatBtn').addEventListener('click', function(){
+    mutate('/api/waitlists/demo/seat', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lecture:lectureEl.value, practice:practiceEl.value})});
+  });
+  document.getElementById('demoHoldBtn').addEventListener('click', function(){
+    mutate('/api/waitlists/demo/hold', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({on_hold:!data.on_hold})});
+  });
+  function start(){
+    refresh();
+    if(timer) clearInterval(timer);
+    timer = setInterval(function(){
+      if(!document.hidden && document.getElementById('paneWaitlist').classList.contains('active')) refresh();
+    }, 2000);
+  }
+  window.addEventListener('auth:ready', start);
+  document.getElementById('tabWaitlistBtn').addEventListener('click', refresh);
+  if(window.scheduleCurrentUser) start();
+})();
+</script>
 </body>
 </html>
