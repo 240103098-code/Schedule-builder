@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from waitlist_service import install_waitlists
+from registration_service import install_registration
 import mailer
 
 
@@ -620,7 +621,8 @@ def send_verification(db: Session, user: UserModel) -> None:
 
 app = FastAPI(title="Schedule & Degree Audit API")
 
-install_waitlists(app, Base, SessionLocal, UserModel, get_current_user, default_curriculum())
+waitlists = install_waitlists(app, Base, SessionLocal, UserModel, get_current_user, default_curriculum())
+install_registration(app, Base, waitlists, get_current_user, default_curriculum())
 
 
 @app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)

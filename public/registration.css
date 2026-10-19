@@ -1,0 +1,113 @@
+/* Shared palette, typography and spacing; scoped to Advisor & Alerts. */
+#paneRegistration [hidden]{display:none!important;}
+#paneRegistration .degree-app{align-items:stretch;}
+#paneRegistration .degree-sidebar,
+#paneRegistration .degree-main{min-width:0;}
+#paneRegistration .title{overflow-wrap:anywhere;}
+#paneRegistration h2{
+  margin:0 0 16px;font:600 21px/1.25 'Fraunces',serif;
+  letter-spacing:-.01em;color:var(--ink);
+}
+#paneRegistration .degree-main>h2{margin:0 0 20px;}
+#paneRegistration #registrationIdentity{
+  display:table;margin:14px 0 20px;padding:6px 9px;max-width:100%;
+  border:1px solid var(--paper-line);border-radius:var(--radius-s);
+  background:var(--surface);color:var(--ink-soft);
+  font:500 11px/1.6 'IBM Plex Mono',monospace;
+}
+#paneRegistration .degree-sidebar>.semester-note{margin:0 0 24px;line-height:1.7;}
+#paneRegistration form{margin:0;padding:24px 0;border-top:1px solid var(--paper-line);}
+#paneRegistration form h2{font-size:19px;margin-bottom:16px;}
+#paneRegistration .section-label{display:block;margin:0 0 8px;letter-spacing:.04em;}
+#paneRegistration #overrideSelection{
+  margin:0 0 20px;padding:10px 12px;background:var(--surface);
+  border:1px solid var(--paper-line);border-left:3px solid var(--accent);
+  border-radius:var(--radius-s);font:500 11px/1.6 'IBM Plex Mono',monospace;
+  color:var(--ink-soft);overflow-wrap:anywhere;
+}
+#paneRegistration .waitlist-select{
+  min-width:0;max-width:100%;margin:0 0 18px;padding:11px 12px;
+  border:1px solid var(--paper-line);border-radius:var(--radius-m);
+  background:var(--surface);color:var(--ink);font:400 13px/1.6 'Inter',sans-serif;
+  transition:border-color .15s,box-shadow .15s;
+}
+#paneRegistration select.waitlist-select{text-overflow:ellipsis;}
+#paneRegistration textarea.waitlist-select{min-height:108px;resize:vertical;}
+#paneRegistration .waitlist-select::placeholder{color:var(--ink-soft);opacity:.8;}
+#paneRegistration .waitlist-select:focus{
+  outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent);
+}
+#paneRegistration fieldset{min-width:0;margin:0 0 20px;padding:0;border:0;}
+#paneRegistration legend{
+  padding:0;margin:0 0 10px;color:var(--ink-soft);letter-spacing:.04em;
+  font:500 11px/1.5 'IBM Plex Mono',monospace;
+}
+#paneRegistration fieldset label{
+  display:inline-flex;align-items:center;gap:7px;padding:9px 10px;margin:0 4px 6px 0;
+  border:1px solid var(--paper-line);border-radius:var(--radius-m);
+  background:var(--surface);color:var(--ink-soft);font:500 12px/1.4 'Inter',sans-serif;
+  cursor:pointer;transition:border-color .15s,background .15s;
+}
+#paneRegistration fieldset label:has(input:checked){border-color:var(--accent);color:var(--ink);}
+#paneRegistration fieldset input{width:14px;height:14px;margin:0;accent-color:var(--accent);cursor:pointer;}
+#paneRegistration .generate-btn{font-size:13px;line-height:1.5;padding:12px;}
+#paneRegistration button:disabled{opacity:.5;cursor:wait;}
+#paneRegistration button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+#paneRegistration #gatewayStatus{
+  margin:0;padding:12px;border:1px dashed var(--paper-line);
+  border-radius:var(--radius-m);font-size:11px;line-height:1.7;
+}
+#paneRegistration #registrationStatus:empty{display:none;}
+#paneRegistration #registrationStatus{margin:16px 0 0;line-height:1.6;}
+#paneRegistration #overrideFormStatus{margin-top:12px;line-height:1.6;}
+#paneRegistration #overrideFormStatus:empty{display:none;}
+#paneRegistration #submitOverrideBtn:disabled{cursor:default;}
+#paneRegistration .registration-card{
+  padding:20px;margin-bottom:14px;border-color:var(--paper-line);
+  background:var(--surface);border-radius:var(--radius-m);
+}
+#paneRegistration .registration-card-heading{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:10px;margin-bottom:10px;
+}
+#paneRegistration .registration-card-heading strong{font:600 14px/1.5 'Inter',sans-serif;}
+#paneRegistration .registration-card p{
+  font:400 13px/1.8 'Inter',sans-serif;color:var(--ink-soft);margin:0;white-space:pre-line;
+}
+#paneRegistration .registration-badge{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:var(--radius-s);
+  border:1px solid var(--paper-line);color:var(--ink-soft);background:var(--paper);
+  font:500 10px/1.4 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.03em;
+}
+#paneRegistration .registration-badge::before{content:'';width:5px;height:5px;background:currentColor;border-radius:50%;}
+#paneRegistration .registration-badge[data-status="pending"]{color:#81500C;background:#FFF3D9;border-color:#E8C47D;}
+#paneRegistration .registration-badge[data-status="approved"],
+#paneRegistration .registration-badge[data-status="delivered"]{color:#245D52;background:#E7F3EC;border-color:#A7CDB9;}
+#paneRegistration .registration-badge[data-status="rejected"]{color:#972C3D;background:#FCEBED;border-color:#E9B9C1;}
+:root[data-theme="dark"] #paneRegistration .registration-badge[data-status="pending"]{color:#F4CE8C;background:#3A3020;border-color:#6F5631;}
+:root[data-theme="dark"] #paneRegistration .registration-badge[data-status="approved"],
+:root[data-theme="dark"] #paneRegistration .registration-badge[data-status="delivered"]{color:#B4E4D3;background:#213D36;border-color:#3B6C5E;}
+:root[data-theme="dark"] #paneRegistration .registration-badge[data-status="rejected"]{color:#FFB7C4;background:#3A2230;border-color:#744354;}
+#paneRegistration .registration-card textarea.waitlist-select{margin:18px 0 12px;min-height:82px;}
+#paneRegistration .registration-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;}
+#paneRegistration .registration-action{
+  margin:0;padding:9px 16px;min-height:38px;min-width:100px;border:1px solid var(--paper-line);
+  border-radius:var(--radius-m);background:var(--paper);color:var(--ink);
+  font:600 12px/1.5 'Inter',sans-serif;cursor:pointer;transition:background .15s,border-color .15s;
+}
+#paneRegistration .registration-action:hover{background:var(--board-bg-2);border-color:var(--ink-soft);}
+#paneRegistration .registration-action.is-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+#paneRegistration .registration-action.is-primary:hover{filter:brightness(1.05);}
+#paneRegistration .registration-action.is-reject{color:var(--danger);}
+:root[data-theme="dark"] #paneRegistration .registration-action.is-reject{color:#FFB7C4;}
+#paneRegistration .registration-card.is-empty{background:transparent;border-style:dashed;padding:24px;}
+#paneRegistration .registration-card.is-empty .registration-card-heading{margin-bottom:4px;}
+#paneRegistration #studentSeatPanel{margin-top:30px;padding-top:26px;border-top:1px solid var(--paper-line);}
+#paneRegistration #seatSubscriptions{margin-bottom:28px;}
+#paneRegistration #seatNotifications{max-height:320px;padding:0;border:0;background:transparent;}
+#paneRegistration #seatNotifications .registration-card{display:block;padding:16px 20px;border:1px solid var(--paper-line);margin:0 0 12px;border-radius:var(--radius-m);}
+@media(max-width:860px){
+  #paneRegistration .degree-sidebar{padding:26px 24px;}
+  #paneRegistration .degree-main{padding:26px 24px 36px;}
+}
+@media(prefers-reduced-motion:reduce){#paneRegistration *{transition:none!important;}}

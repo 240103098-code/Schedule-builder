@@ -1096,6 +1096,7 @@ try {
   :root[data-theme="dark"] .curriculum-status.error,
   :root[data-theme="dark"] .course-card.has-prerequisite-error .course-code-input{background:#3A2230; color:#FFB7C4;}
 </style>
+<link rel="stylesheet" href="/static/registration.css">
 </head>
 <body class="auth-pending auth-locked">
 
@@ -1216,6 +1217,7 @@ try {
   <button class="top-tab-btn active" id="tabScheduleBtn" type="button">01 · Schedule Builder</button>
   <button class="top-tab-btn" id="tabDegreeBtn" type="button">02 · Degree Progress</button>
   <button class="top-tab-btn" id="tabWaitlistBtn" type="button">03 · Waitlists</button>
+  <button class="top-tab-btn" id="tabRegistrationBtn" type="button">04 · Advisor &amp; Alerts</button>
   <span class="tabs-spacer"></span>
   <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
   <div class="account-panel" id="accountPanel">
@@ -2288,9 +2290,9 @@ try {
 (function(){
   "use strict";
 
-  ['Schedule','Degree','Waitlist'].forEach(function(name){
+  ['Schedule','Degree','Waitlist','Registration'].forEach(function(name){
     document.getElementById('tab' + name + 'Btn').addEventListener('click', function(){
-      ['Schedule','Degree','Waitlist'].forEach(function(other){
+      ['Schedule','Degree','Waitlist','Registration'].forEach(function(other){
         document.getElementById('tab' + other + 'Btn').classList.toggle('active', name === other);
         document.getElementById('pane' + other).classList.toggle('active', name === other);
       });
@@ -3358,7 +3360,7 @@ try {
     var previousScroll = notifications.scrollTop;
     notifications.innerHTML = '';
     data.notifications.forEach(function(notification){
-      row(notifications, (notification.channel === 'billing' ? 'Tuition adjustment' : 'Email') + ' · ' + notification.status, notification.message);
+      row(notifications, (notification.channel === 'billing' ? 'Tuition adjustment' : notification.channel.toUpperCase()) + ' · ' + notification.status, notification.message);
     });
     notifications.scrollTop = previousScroll;
   }
@@ -3401,5 +3403,51 @@ try {
   if(window.scheduleCurrentUser) start();
 })();
 </script>
+<div class="view-pane" id="paneRegistration">
+  <div class="degree-app">
+    <div class="degree-sidebar">
+      <div class="brand"><span class="mark">04</span></div>
+      <h1 class="title">Advisor &amp; Alerts</h1>
+      <p class="subtitle" id="registrationIdentity"></p>
+      <p class="semester-note">Choose any course below and explain why you need an extra seat. Your advisor will review the request.</p>
+      <form id="overrideForm">
+        <h2>Request an extra seat</h2>
+        <label class="section-label" for="requestCourseSearch">FIND A COURSE</label>
+        <input class="waitlist-select" id="requestCourseSearch" type="search" placeholder="Search by course code or name…" autocomplete="off">
+        <label class="section-label" for="requestCourse">COURSE</label>
+        <select class="waitlist-select" id="requestCourse" required><option value="">Choose a course…</option></select>
+        <label class="section-label" for="overrideReason">WHY DO YOU NEED AN EXTRA SEAT?</label>
+        <textarea class="waitlist-select" id="overrideReason" minlength="5" maxlength="1000" placeholder="Explain why you need an extra seat for this course…" required></textarea>
+        <button class="generate-btn" id="submitOverrideBtn" type="submit">Request extra seat</button>
+        <div class="status-line" id="overrideFormStatus" role="status" aria-live="polite"></div>
+      </form>
+      <form id="seatAlertForm">
+        <h2>Seat alert subscription</h2>
+        <p class="semester-note">Select a course section on the Waitlists tab to subscribe to seat alerts.</p>
+        <label class="section-label" for="alertSection">SELECTED SECTION</label>
+        <select class="waitlist-select" id="alertSection" required></select>
+        <fieldset><legend>NOTIFICATION CHANNELS</legend>
+          <label><input type="checkbox" name="alertChannel" value="push" checked> Push</label>
+          <label><input type="checkbox" name="alertChannel" value="sms"> SMS</label>
+          <label><input type="checkbox" name="alertChannel" value="email"> Email</label>
+        </fieldset>
+        <label class="section-label" for="alertPhone">PHONE FOR SMS</label>
+        <input class="waitlist-select" id="alertPhone" type="tel" maxlength="20" autocomplete="tel" placeholder="+77001234567">
+        <button class="generate-btn" type="submit">Subscribe to full section</button>
+      </form>
+      <p class="semester-note" id="gatewayStatus"></p>
+      <div class="status-line" id="registrationStatus" role="status" aria-live="polite"></div>
+    </div>
+    <div class="degree-main">
+      <h2 class="title" id="overrideHeading">Your override requests</h2>
+      <div id="overrideRequests" aria-live="polite"></div>
+      <section id="studentSeatPanel">
+      <h2>Active seat subscriptions</h2><div id="seatSubscriptions"></div>
+      <h2>Seat notifications</h2><div id="seatNotifications" class="waitlist-log" aria-live="polite"></div>
+      </section>
+    </div>
+  </div>
+</div>
+<script src="/static/registration.js"></script>
 </body>
 </html>

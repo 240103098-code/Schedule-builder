@@ -53,6 +53,7 @@ class WaitlistService:
         self.wake = threading.Event()
         self.stop = threading.Event()
         self.worker = None
+        self.registration = None
 
         class Section(base):
             __tablename__ = "enrollment_sections"
@@ -185,6 +186,14 @@ class WaitlistService:
         local = sum(section.section in (row.lecture, row.practice) for row in active)
         return max(0, section.quota - section.occupied - section.reserved - local)
 
+    def seat_counts(self, db):
+        active = self.active(db)
+        return {s.section: self.free(s, active) for s in self.sections(db).values()}
+
+    def notify_seats(self, db, before):
+        if self.registration:
+            self.registration.seat_opened(db, before)
+
     def enqueue(self, db, entry, kind, message, enrollment=None):
         payload = {"event":kind, "term":self.term, "course":entry.course,
             "lecture":entry.lecture, "practice":entry.practice, "message":message,
@@ -207,6 +216,8 @@ class WaitlistService:
             requested = {entry.lecture, entry.practice}
             hold = db.get(self.Hold, entry.user_id)
             reason = ""
+            if self.registration:
+                reason = self.registration.block_reason(db, entry, lecture, active)
             student = db.get(self.user_model, entry.user_id)
             if not getattr(student, "email_verified", True):
                 reason = "Verify your email address before enrollment."
@@ -289,6 +300,7 @@ class WaitlistService:
 
     def drop(self, user_id, enrollment_id):
         with self.transaction() as db:
+            before = self.seat_counts(db)
             enrollment = db.query(self.Enrollment).filter_by(id=enrollment_id, user_id=user_id, term=self.term).first()
             if not enrollment:
                 raise HTTPException(404, "Enrollment not found.")
@@ -299,12 +311,14 @@ class WaitlistService:
             entry.status = "cancelled"
             self.enqueue(db, entry, "enrollment_dropped", f"You dropped {entry.course}.", enrollment)
             db.flush()
+            self.notify_seats(db, before)
             self.promote(db)
         self.wake.set()
 
     def source_event(self, payload, kind):
         digest = hashlib.sha256((kind + json.dumps(payload.model_dump(), sort_keys=True)).encode()).hexdigest()
         with self.transaction() as db:
+            before = self.seat_counts(db)
             existing = db.get(self.Event, payload.event_id)
             if existing:
                 if existing.digest != digest:
@@ -331,6 +345,7 @@ class WaitlistService:
                 row.on_hold, row.reason, row.revision, row.verified_at = int(payload.on_hold), payload.reason, payload.revision, int(time.time())
             db.add(self.Event(id=payload.event_id, digest=digest))
             db.flush()
+            self.notify_seats(db, before)
             self.promote(db)
         self.wake.set()
 
@@ -338,6 +353,7 @@ class WaitlistService:
         if not self.academic:
             raise HTTPException(404, "Simulation is disabled.")
         with self.transaction() as db:
+            before = self.seat_counts(db)
             entry = db.query(self.Entry).filter_by(term=self.term, user_id=user_id,
                 lecture=payload.lecture, practice=payload.practice).first()
             if not entry or entry.status not in ("waiting", "blocked"):
@@ -350,6 +366,7 @@ class WaitlistService:
                     section.occupied -= 1
                     section.revision += 1
             db.flush()
+            self.notify_seats(db, before)
             self.promote(db)
         self.wake.set()
 
@@ -389,6 +406,22 @@ class WaitlistService:
                     for o in db.query(self.Outbox).filter_by(user_id=user_id).order_by(self.Outbox.id.desc()).limit(30)]}
 
     def deliver(self, channel, payload, email, key):
+        if payload.get('event') == 'seat_available':
+            url = os.getenv('UNIVERSITY_NOTIFICATION_URL', '').strip()
+            if not url:
+                raise RuntimeError('University notification gateway is not configured')
+            if not url.startswith('https://') and not (os.getenv('APP_ENV', 'development') != 'production' and url.startswith('http://127.0.0.1:')):
+                raise RuntimeError('Notification gateway must use HTTPS')
+            headers = {'Content-Type':'application/json', 'Idempotency-Key':key}
+            token = os.getenv('UNIVERSITY_NOTIFICATION_TOKEN', '')
+            if token:
+                headers['Authorization'] = 'Bearer ' + token
+            request = UrlRequest(url, data=json.dumps({**payload, 'channel':channel,
+                'student_email':email}).encode(), headers=headers, method='POST')
+            with urlopen(request, timeout=5) as response:
+                if not 200 <= response.status < 300:
+                    raise RuntimeError('Notification gateway rejected the event')
+            return
         if channel == "billing":
             if self.academic:
                 return  # Billing remains simulated; email is always real SMTP delivery.
@@ -415,7 +448,7 @@ class WaitlistService:
                 return
             now = int(time.time())
             with self.transaction() as db:
-                row = db.query(self.Outbox).filter(self.Outbox.status.notin_(["delivered", "simulated"]),
+                row = db.query(self.Outbox).filter(self.Outbox.status.notin_(["delivered", "simulated", "cancelled"]),
                     self.Outbox.next_attempt <= now, self.Outbox.lease_until <= now).order_by(self.Outbox.id).first()
                 if not row:
                     return
