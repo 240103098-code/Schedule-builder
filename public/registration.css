@@ -89,6 +89,8 @@
 :root[data-theme="dark"] #paneRegistration .registration-badge[data-status="delivered"]{color:#B4E4D3;background:#213D36;border-color:#3B6C5E;}
 :root[data-theme="dark"] #paneRegistration .registration-badge[data-status="rejected"]{color:#FFB7C4;background:#3A2230;border-color:#744354;}
 #paneRegistration .registration-card textarea.waitlist-select{margin:18px 0 12px;min-height:82px;}
+#paneRegistration .registration-card>.section-label{margin-top:18px;}
+.top-tabs .top-tab-btn[hidden]{display:none!important;}
 #paneRegistration .registration-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;}
 #paneRegistration .registration-action{
   margin:0;padding:9px 16px;min-height:38px;min-width:100px;border:1px solid var(--paper-line);
@@ -99,6 +101,7 @@
 #paneRegistration .registration-action.is-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
 #paneRegistration .registration-action.is-primary:hover{filter:brightness(1.05);}
 #paneRegistration .registration-action.is-reject{color:var(--danger);}
+#paneRegistration .registration-action:disabled{cursor:default;opacity:.6;}
 :root[data-theme="dark"] #paneRegistration .registration-action.is-reject{color:#FFB7C4;}
 #paneRegistration .registration-card.is-empty{background:transparent;border-style:dashed;padding:24px;}
 #paneRegistration .registration-card.is-empty .registration-card-heading{margin-bottom:4px;}
@@ -111,3 +114,15 @@
   #paneRegistration .degree-main{padding:26px 24px 36px;}
 }
 @media(prefers-reduced-motion:reduce){#paneRegistration *{transition:none!important;}}
+#paneRegistration .registration-card.is-unread{border-left:3px solid var(--accent);}
+#paneRegistration #seatDeliveryLog{margin-top:12px;}
+#paneRegistration #studentSeatPanel>h2:not(:first-child){margin-top:26px;}
+#courseNoticeToast[hidden],#courseNotificationsBtn[hidden]{display:none!important;}
+#courseNoticeToast{position:fixed;right:24px;bottom:24px;z-index:1500;width:min(390px,calc(100vw - 32px));
+  padding:18px 20px;background:var(--surface);color:var(--ink);border:1px solid var(--paper-line);
+  border-left:4px solid var(--accent);border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.22);}
+#courseNoticeToast strong{font:600 14px/1.5 'Inter',sans-serif;}
+#courseNoticeToast p{font:400 12px/1.7 'Inter',sans-serif;color:var(--ink-soft);overflow-wrap:anywhere;}
+#courseNoticeToast button{padding:7px 12px;margin-right:6px;border:1px solid var(--paper-line);border-radius:6px;
+  color:var(--ink);background:var(--paper);font:600 11px 'Inter',sans-serif;cursor:pointer;}
+#courseNoticeToast #openCourseNoticeBtn{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}

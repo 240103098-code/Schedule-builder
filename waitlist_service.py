@@ -13,6 +13,7 @@ from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, ForeignKey, Integer, JSON, String, UniqueConstraint, text
 import mailer
+import telegram_delivery
 
 log = logging.getLogger(__name__)
 
@@ -194,6 +195,10 @@ class WaitlistService:
         if self.registration:
             self.registration.seat_opened(db, before)
 
+    def require_student(self, db, user_id):
+        if self.registration:
+            self.registration.require_student(db, user_id)
+
     def enqueue(self, db, entry, kind, message, enrollment=None):
         payload = {"event":kind, "term":self.term, "course":entry.course,
             "lecture":entry.lecture, "practice":entry.practice, "message":message,
@@ -214,12 +219,18 @@ class WaitlistService:
         for entry in queue:
             lecture, practice = sections[entry.lecture], sections[entry.practice]
             requested = {entry.lecture, entry.practice}
+            grant = self.registration.grant_for(db, entry) if self.registration else None
             hold = db.get(self.Hold, entry.user_id)
             reason = ""
             if self.registration:
                 reason = self.registration.block_reason(db, entry, lecture, active)
+                profile = db.get(self.registration.Profile, entry.user_id)
+                if profile and profile.role != 'student':
+                    reason = 'Only student accounts can enroll in courses.'
             student = db.get(self.user_model, entry.user_id)
-            if not getattr(student, "email_verified", True):
+            local_student = (getattr(student, 'local_account', 0) and self.academic and
+                os.getenv('APP_ENV', 'development').lower() == 'development')
+            if not getattr(student, "email_verified", True) and not local_student:
                 reason = "Verify your email address before enrollment."
             elif not hold or (not self.academic and time.time() - hold.verified_at > int(os.getenv("HOLD_VERIFICATION_TTL_SECONDS", "900"))):
                 reason = "Account hold status has not been verified recently."
@@ -235,9 +246,12 @@ class WaitlistService:
                 blocked_sections.update(requested)
                 continue
             entry.status, entry.reason = "waiting", ""
-            if requested & blocked_sections or not self.free(lecture, active) or not self.free(practice, active):
+            extra = 1 if grant else 0
+            if (not grant and requested & blocked_sections) or not (self.free(lecture, active) + extra) or not (self.free(practice, active) + extra):
                 blocked_sections.update(requested)
                 continue
+            if grant:
+                self.registration.claim_grant(db, grant, lecture, practice)
             enrollment = db.query(self.Enrollment).filter_by(term=self.term, user_id=entry.user_id, course=entry.course).first()
             if not enrollment:
                 enrollment = self.Enrollment(term=self.term, user_id=entry.user_id, course=entry.course)
@@ -260,6 +274,7 @@ class WaitlistService:
 
     def join(self, user_id, payload):
         with self.transaction() as db:
+            self.require_student(db, user_id)
             if self.academic and not db.get(self.Hold, user_id):
                 db.add(self.Hold(user_id=user_id, on_hold=0, reason="", revision=0, verified_at=int(time.time())))
                 db.flush()
@@ -288,6 +303,7 @@ class WaitlistService:
 
     def cancel(self, user_id, entry_id):
         with self.transaction() as db:
+            self.require_student(db, user_id)
             entry = db.query(self.Entry).filter_by(id=entry_id, user_id=user_id, term=self.term).first()
             if not entry:
                 raise HTTPException(404, "Waitlist entry not found.")
@@ -300,6 +316,7 @@ class WaitlistService:
 
     def drop(self, user_id, enrollment_id):
         with self.transaction() as db:
+            self.require_student(db, user_id)
             before = self.seat_counts(db)
             enrollment = db.query(self.Enrollment).filter_by(id=enrollment_id, user_id=user_id, term=self.term).first()
             if not enrollment:
@@ -330,9 +347,10 @@ class WaitlistService:
                     raise HTTPException(404, "Section not found.")
                 if payload.revision <= row.revision:
                     raise HTTPException(409, "Stale inventory revision.")
-                if payload.occupied + payload.reserved + sum(row.section in (e.lecture,e.practice) for e in self.active(db)) > payload.quota:
+                grants = self.registration.reserved_count(db, row.section) if self.registration else 0
+                if payload.occupied + payload.reserved + grants + sum(row.section in (e.lecture,e.practice) for e in self.active(db)) > payload.quota:
                     raise HTTPException(409, "Inventory update would exceed the section quota.")
-                row.quota, row.occupied, row.reserved, row.revision = payload.quota, payload.occupied, payload.reserved, payload.revision
+                row.quota, row.occupied, row.reserved, row.revision = payload.quota, payload.occupied, payload.reserved + grants, payload.revision
             else:
                 if not db.get(self.user_model, payload.user_id):
                     raise HTTPException(404, "Student not found.")
@@ -353,6 +371,7 @@ class WaitlistService:
         if not self.academic:
             raise HTTPException(404, "Simulation is disabled.")
         with self.transaction() as db:
+            self.require_student(db, user_id)
             before = self.seat_counts(db)
             entry = db.query(self.Entry).filter_by(term=self.term, user_id=user_id,
                 lecture=payload.lecture, practice=payload.practice).first()
@@ -374,6 +393,7 @@ class WaitlistService:
         if not self.academic:
             raise HTTPException(404, "Simulation is disabled.")
         with self.transaction() as db:
+            self.require_student(db, user_id)
             hold = db.get(self.Hold, user_id)
             if not hold:
                 hold = self.Hold(user_id=user_id, revision=0)
@@ -407,6 +427,11 @@ class WaitlistService:
 
     def deliver(self, channel, payload, email, key):
         if payload.get('event') == 'seat_available':
+            if channel == 'email' and mailer.configured():
+                mailer.send_email(email, 'Course seat available', payload['message'], key)
+                return
+            if channel == 'telegram':
+                return telegram_delivery.deliver(payload.get('telegram_chat_id'), payload['message'])
             url = os.getenv('UNIVERSITY_NOTIFICATION_URL', '').strip()
             if not url:
                 raise RuntimeError('University notification gateway is not configured')
@@ -448,7 +473,7 @@ class WaitlistService:
                 return
             now = int(time.time())
             with self.transaction() as db:
-                row = db.query(self.Outbox).filter(self.Outbox.status.notin_(["delivered", "simulated", "cancelled"]),
+                row = db.query(self.Outbox).filter(self.Outbox.status.notin_(["delivered", "simulated", "cancelled", "failed"]),
                     self.Outbox.next_attempt <= now, self.Outbox.lease_until <= now).order_by(self.Outbox.id).first()
                 if not row:
                     return
@@ -458,19 +483,37 @@ class WaitlistService:
                 student = db.get(self.user_model, row.user_id)
                 email = student.email
                 verified = getattr(student, "email_verified", True)
+                if channel == 'telegram' and self.registration:
+                    link = db.get(self.registration.TelegramLink, row.user_id)
+                    payload = {**payload, 'telegram_chat_id':link.chat_id if link else ''}
             error = ""
+            delivery = None
+            permanent_failure = False
+            retry_after = 0
             try:
                 if channel == "email" and not verified:
                     raise RuntimeError("Verify the recipient before enrollment email delivery")
-                self.deliver(channel, payload, email, key)
+                delivery = self.deliver(channel, payload, email, key)
             except Exception as exc:
-                # Store only exception type: provider errors can contain credentials/PII.
-                error = type(exc).__name__
+                # Store only safe numeric codes, never raw provider messages.
+                error = telegram_delivery.error_summary(exc)
+                retry_after = getattr(exc, "retry_after", 0)
+                permanent_failure = isinstance(exc, telegram_delivery.TelegramError) and exc.permanent
             with self.transaction() as db:
                 row = db.get(self.Outbox, row_id)
                 row.status = "pending" if error else ("simulated" if self.academic and channel == "billing" else "delivered")
-                row.last_error, row.lease_until = error, 0
-                row.next_attempt = int(time.time()) + min(300, 2 ** min(row.attempts, 8)) if error else 0
+                if permanent_failure:
+                    row.status = 'failed'
+                if not error and isinstance(delivery, dict):
+                    row.status = delivery['status']
+                    row.payload = {**row.payload, 'provider_message_id':delivery.get('provider_message_id', '')}
+                if not error and channel == 'email':
+                    row.payload = {**row.payload, 'delivery_provider':
+                        'smtp' if payload.get('event') != 'seat_available' or mailer.configured() else 'gateway'}
+                row.last_error = error or (delivery.get('error', '') if isinstance(delivery, dict) else '')
+                row.lease_until = 0
+                row.next_attempt = int(time.time()) + max(retry_after, min(300, 2 ** min(row.attempts, 8))) if error else 0
+
 
     def run(self):
         while not self.stop.is_set():

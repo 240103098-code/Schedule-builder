@@ -12,8 +12,7 @@ course, selected lecture/practice, department, flags and approved credit total.
 Seat capacity, account holds and schedule conflicts continue to apply.
 
 **US6 — Course Seat Alert Notifications.** Students subscribe to a full lecture
-or practice section with any combination of Push, SMS and Email. SMS requires an
-international phone number. A transition from zero to positive free seats queues
+or practice section with any combination of Push, Telegram and Email. Telegram requires a linked private bot chat. A transition from zero to positive free seats queues
 one event per subscribed channel in the same transaction as the seat update.
 Inventory webhooks, simulation and dropped enrollments all trigger this check.
 Unchanged inventory, a still-full section and replayed webhook events do not send
@@ -33,8 +32,15 @@ published sections. Choose a subject and explain why you need an additional seat
 No selection on Waitlists is needed. POST /api/registration/seat-requests accepts
 course and reason, stores an additional_seat request, and displays it to the
 student's department advisor with the course name and reason. Approval records the
-advisor's decision; it does not silently increase a university quota or reserve a
-place. Existing section-specific override API and its authorization checks remain
+advisor's decision. The advisor chooses a lecture and linked practice and approves
+with **Approve & grant 1 seat**. Both local section quotas increase by one, and
+that place is reserved for the requesting student in a transactional grant record.
+The student uses **Enroll using reserved seat** or joins the matching waitlist.
+The personal grant cannot be consumed by another student; ordinary FIFO still
+applies to other places. Holds and conflicts retain the reservation until resolved.
+Repeated approvals cannot create more grants. Rejection changes no quotas.
+Course sections must be published before a physical seat can be allocated.
+Existing section-specific override API and its authorization checks remain
 available. Seat alert subscriptions still use the sections selected on Waitlists.
 
 Run these commands **from the project directory**, using the same Python and
@@ -55,21 +61,23 @@ assignments remain unchanged. Outside academic mode, department assignment still
 requires an administrator. HTTP clients cannot grant themselves advisor rights.
 The default course catalog has no imposed restrictions until configured. Existing
 users and saved schedules are preserved; new tables are created automatically.
-Students may submit any selected, not-yet-enrolled course for manual advisor
-review even when it has no configured restriction. This creates a manual_review
-request and pauses enrollment until approval; rejection keeps it blocked.
+Students may submit any selected, not-yet-enrolled course for an additional seat
+even when it has no configured restriction. Additional-seat requests preserve
+the student's reason and are routed to the department advisor.
 Form errors and submission status appear next to the submit button. A finalized
 or pending request disables duplicate submission for the same course.
 
 1. Restart the existing server, or let its development reloader reload the change.
-2. As the student, select CSS 105 and its sections on **Waitlists**.
-3. On **Advisor & Alerts**, submit an override reason and subscribe to a full
-   selected section. Choose channels and provide a phone number for SMS.
-4. Join the waitlist, then simulate a seat opening. Without approval the restricted
-   course stays blocked, and the seat notification is recorded.
-5. Sign in as the advisor in another browser session, open **Advisor & Alerts**,
-   and approve/reject with an optional comment. Approval enrolls the student when
-   both selected sections have seats and other checks pass.
+2. As the student, choose a course on **Requests & Alerts** and submit a reason
+   for an extra seat.
+3. Sign in as the advisor in another browser session. Advisor workspace opens
+   automatically; student tabs are hidden. Choose a lecture/practice pair and
+   select **Approve & grant 1 seat**, or **Reject**.
+4. As the student, use **Enroll using reserved seat**. If already queued for that
+   pair, approval retries enrollment immediately. No simulation of a dropped seat
+   is required for the personal grant.
+5. The account badge shows Student or Advisor and its department. Role checks
+   are enforced on the server, including student-only enrollment mutations.
 6. Test rejection with another student/request. A second decision on a finalized
    request is refused. Requests are final for that course and term.
 
@@ -100,20 +108,17 @@ Authorization Bearer token when configured, and an Idempotency-Key. JSON fields:
   "subscription_id": 1,
   "channel": "push",
   "student_email": "student@example.com",
-  "phone": "",
   "message": "A seat opened ..."
 }
 ```
 
-All seat-alert channels use this gateway, including Email. Existing enrollment
-emails retain SMTP delivery. The university gateway must map student_email to
-registered iOS/Android push endpoints and route SMS/Email, deduplicate the supplied
-key, and return a 2xx response on acceptance. Adapt this small delivery boundary
-if the actual gateway contract differs. No gateway credentials or mobile device
-registry were supplied, so real delivery to devices has not been verified.
+Telegram alerts use the Bot API directly, with a private chat linked to each account.
+Email uses configured SMTP, with the gateway as fallback. Push uses the university
+gateway, which must map student_email to registered device endpoints and deduplicate
+the supplied key. See NOTIFICATIONS_SETUP.md for Telegram setup.
 
-Without a configured gateway, alerts remain visibly pending. Retry delays grow
-up to five minutes during outages, including SMS provider outages. Under a healthy
+Without a configured gateway, Push alerts remain visibly pending. Retry delays grow
+up to five minutes during outages, including Telegram API outages. Under a healthy
 gateway the worker wakes immediately (otherwise checks each second); queuing is
 verified within 30 seconds. End-to-end delivery within 30 seconds depends on the
 gateway, load and provider, and is not guaranteed offline. A delivery already

@@ -6,6 +6,7 @@ import os
 import re
 import secrets
 import time
+from dotenv import load_dotenv
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -22,6 +23,7 @@ import mailer
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, '.env'), override=False)
 PUBLIC_DIR = os.path.join(BASE_DIR, "public")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./database.db")
 
@@ -53,6 +55,7 @@ class UserModel(Base):
     password_hash = Column(String(512), nullable=False)
     created_at = Column(Integer, nullable=False)
     email_verified = Column(Integer, nullable=False, default=0)
+    local_account = Column(Integer, nullable=False, default=0)
 
 
 class AuthSessionModel(Base):
@@ -127,6 +130,10 @@ if "email_verified" not in {column["name"] for column in inspect(engine).get_col
     with engine.begin() as connection:
         connection.execute(text("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0"))
 
+if "local_account" not in {column["name"] for column in inspect(engine).get_columns("users")}:
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE users ADD COLUMN local_account INTEGER NOT NULL DEFAULT 0"))
+
 
 def ensure_curriculum_progress_column() -> None:
     """Add the progress column for databases created by an earlier app version."""
@@ -189,6 +196,7 @@ class RegisterSchema(BaseModel):
     name: str
     email: str
     password: str
+    local_demo: bool = False
 
 
 class LoginSchema(BaseModel):
@@ -291,7 +299,14 @@ def token_digest(token: str) -> str:
 
 
 def public_user(user: UserModel) -> dict:
-    return {"id": user.id, "name": user.name, "email": user.email}
+    return {"id": user.id, "name": user.name, "email": user.email, "local_account":bool(user.local_account)}
+
+
+def local_registration_allowed(request: Request) -> bool:
+    return (os.getenv('APP_ENV', 'development').lower() == 'development'
+        and os.getenv('WAITLIST_MODE', 'academic') == 'academic'
+        and request.client is not None and request.client.host in ('127.0.0.1', '::1')
+        and request.url.hostname in ('localhost', '127.0.0.1', '::1'))
 
 
 def normalize_curriculum(payload: CurriculumSchema) -> tuple[str, list[dict], Optional[dict]]:
@@ -584,7 +599,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> UserMod
     user = db.query(UserModel).filter(UserModel.id == auth_session.user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден.")
-    if not user.email_verified:
+    if user.local_account:
+        if not local_registration_allowed(request):
+            raise HTTPException(403, detail="Учебный аккаунт доступен только локально в режиме разработки.")
+    elif not user.email_verified:
         raise HTTPException(403, detail="Подтвердите адрес электронной почты перед входом.")
     return user
 
@@ -614,9 +632,9 @@ def send_verification(db: Session, user: UserModel) -> None:
             "Подтвердите адрес электронной почты по одноразовой ссылке:\n\n"
             + base_url + "/#verify-token=" + raw_token
             + "\n\nПосле подтверждения войдите с паролем. Если вы не регистрировались, проигнорируйте письмо.")
-    except Exception:
+    except Exception as exc:
         db.rollback()
-        raise HTTPException(503, detail="Письмо не отправлено. Настройте SMTP и попробуйте снова.")
+        raise HTTPException(503, detail=mailer.diagnostic(exc)) from None
 
 
 app = FastAPI(title="Schedule & Degree Audit API")
@@ -625,8 +643,15 @@ waitlists = install_waitlists(app, Base, SessionLocal, UserModel, get_current_us
 install_registration(app, Base, waitlists, get_current_user, default_curriculum())
 
 
+@app.get('/api/auth/config')
+def auth_config(request: Request):
+    return {'local_registration_available':local_registration_allowed(request)}
+
+
 @app.post("/api/auth/register", status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterSchema, response: Response, db: Session = Depends(get_db)):
+def register(payload: RegisterSchema, response: Response, request: Request, db: Session = Depends(get_db)):
+    if payload.local_demo and not local_registration_allowed(request):
+        raise HTTPException(403, detail="Учебная регистрация доступна только на localhost в режиме разработки.")
     name = " ".join(payload.name.strip().split())
     if len(name) < 2 or len(name) > 80:
         raise HTTPException(status_code=422, detail="Имя должно содержать от 2 до 80 символов.")
@@ -638,15 +663,22 @@ def register(payload: RegisterSchema, response: Response, db: Session = Depends(
         email=email,
         password_hash=hash_password(payload.password),
         created_at=int(time.time()),
+        local_account=int(payload.local_demo),
     )
     db.add(user)
     try:
         db.flush()
-        send_verification(db, user)
+        if payload.local_demo:
+            create_session(db, user, response)
+        else:
+            send_verification(db, user)
         db.commit()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Аккаунт с такой почтой уже существует. Войдите или запросите подтверждение повторно.")
+    if payload.local_demo:
+        return {'verification_required':False, 'local_account':True, 'email':email,
+            'user':public_user(user), 'message':'Учебный аккаунт создан. Почта не подтверждена, SMTP не используется.'}
     return {"verification_required": True, "email":email,
         "message":"Письмо отправлено. Подтвердите почту по ссылке перед входом."}
 
@@ -684,13 +716,16 @@ def verify_email(payload: VerifyEmailSchema, db: Session = Depends(get_db)):
 
 
 @app.post("/api/auth/login")
-def login(payload: LoginSchema, response: Response, db: Session = Depends(get_db)):
+def login(payload: LoginSchema, response: Response, request: Request, db: Session = Depends(get_db)):
     email = normalize_email(payload.email)
     user = db.query(UserModel).filter(UserModel.email == email).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Неверная почта или пароль.")
 
-    if not user.email_verified:
+    if user.local_account:
+        if not local_registration_allowed(request):
+            raise HTTPException(403, detail="Учебный аккаунт доступен только локально в режиме разработки.")
+    elif not user.email_verified:
         raise HTTPException(403, detail="Подтвердите почту. Запросите новое письмо на экране подтверждения.")
     create_session(db, user, response)
     return {"user": public_user(user)}

@@ -16,6 +16,7 @@ try {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
+  #localRegistrationOption[hidden]{display:none!important;}
   :root{
     color-scheme:light;
     --surface:#fff;
@@ -1096,7 +1097,7 @@ try {
   :root[data-theme="dark"] .curriculum-status.error,
   :root[data-theme="dark"] .course-card.has-prerequisite-error .course-code-input{background:#3A2230; color:#FFB7C4;}
 </style>
-<link rel="stylesheet" href="/static/registration.css">
+<link rel="stylesheet" href="/static/registration.css?v=20261019-notices1">
 </head>
 <body class="auth-pending auth-locked">
 
@@ -1153,6 +1154,12 @@ try {
         <input class="auth-input" id="registerPasswordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Ещё раз тот же пароль" required>
       </label>
       <p class="auth-hint">Используйте уникальный пароль длиной не менее 8 символов.</p>
+      <label class="auth-field" id="localRegistrationOption" hidden>
+        <span style="display:flex;gap:9px;align-items:flex-start;font-size:12px;line-height:1.6">
+          <input id="registerLocalDemo" type="checkbox" style="accent-color:var(--accent);margin-top:4px">
+          <span>Учебный аккаунт без подтверждения почты<br><small>Только localhost. Создаётся студент, SMTP не требуется.</small></span>
+        </span>
+      </label>
       <button class="auth-primary" type="submit">Зарегистрироваться</button>
       <div class="auth-actions">
         <span>Уже есть аккаунт?</span>
@@ -1219,12 +1226,14 @@ try {
   <button class="top-tab-btn" id="tabWaitlistBtn" type="button">03 · Waitlists</button>
   <button class="top-tab-btn" id="tabRegistrationBtn" type="button">04 · Advisor &amp; Alerts</button>
   <span class="tabs-spacer"></span>
+  <button class="theme-toggle" id="courseNotificationsBtn" type="button" hidden>Уведомления · 0</button>
   <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
   <div class="account-panel" id="accountPanel">
     <span class="account-avatar" id="accountAvatar"></span>
     <span class="account-copy">
       <span class="account-name" id="accountName"></span>
       <span class="account-email" id="accountEmail"></span>
+      <span class="account-email" id="accountAccessRole"></span>
     </span>
     <button class="logout-btn" id="logoutBtn" type="button">Выйти</button>
   </div>
@@ -1378,6 +1387,9 @@ try {
   var forgotForm = document.getElementById('forgotForm');
   var resetForm = document.getElementById('resetForm');
   var verifyForm = document.getElementById('verifyForm');
+  api('/api/auth/config').then(function(config){
+    document.getElementById('localRegistrationOption').hidden = !config.local_registration_available;
+  }).catch(function(){ /* Email registration remains available if configuration cannot load. */ });
 
   function errorMessage(data, fallback){
     if(!data) return fallback;
@@ -1479,10 +1491,15 @@ try {
       body:JSON.stringify({
         name:document.getElementById('registerName').value,
         email:document.getElementById('registerEmail').value,
-        password:password
+        password:password,
+        local_demo:!document.getElementById('localRegistrationOption').hidden && document.getElementById('registerLocalDemo').checked
       })
     });
     registerForm.reset();
+    if(data.local_account && data.user){
+      setAuthenticated(data.user);
+      return;
+    }
     document.getElementById('verifyEmail').value = data.email;
     document.getElementById('verifyToken').value = '';
     document.getElementById('verifyEmailBtn').disabled = true;
@@ -3407,9 +3424,9 @@ try {
   <div class="degree-app">
     <div class="degree-sidebar">
       <div class="brand"><span class="mark">04</span></div>
-      <h1 class="title">Advisor &amp; Alerts</h1>
+      <h1 class="title" id="registrationTitle">Advisor &amp; Alerts</h1>
       <p class="subtitle" id="registrationIdentity"></p>
-      <p class="semester-note">Choose any course below and explain why you need an extra seat. Your advisor will review the request.</p>
+      <p class="semester-note" id="registrationIntro">Choose any course below and explain why you need an extra seat. Your advisor will review the request.</p>
       <form id="overrideForm">
         <h2>Request an extra seat</h2>
         <label class="section-label" for="requestCourseSearch">FIND A COURSE</label>
@@ -3423,16 +3440,35 @@ try {
       </form>
       <form id="seatAlertForm">
         <h2>Seat alert subscription</h2>
-        <p class="semester-note">Select a course section on the Waitlists tab to subscribe to seat alerts.</p>
+        <p class="semester-note">Choose a course and a full section. Alerts appear inside the app as soon as a seat opens.</p>
+        <label class="section-label" for="alertCourse">COURSE</label>
+        <select class="waitlist-select" id="alertCourse" required></select>
         <label class="section-label" for="alertSection">SELECTED SECTION</label>
         <select class="waitlist-select" id="alertSection" required></select>
         <fieldset><legend>NOTIFICATION CHANNELS</legend>
-          <label><input type="checkbox" name="alertChannel" value="push" checked> Push</label>
-          <label><input type="checkbox" name="alertChannel" value="sms"> SMS</label>
-          <label><input type="checkbox" name="alertChannel" value="email"> Email</label>
+          <label><input type="checkbox" name="alertChannel" value="in_app" checked disabled> In app</label>
+          <label><input type="checkbox" name="alertChannel" id="alertTelegramChannel" value="telegram"> Telegram</label>
+          <label><input type="checkbox" name="alertChannel" id="alertEmailChannel" value="email"> Email</label>
         </fieldset>
-        <label class="section-label" for="alertPhone">PHONE FOR SMS</label>
-        <input class="waitlist-select" id="alertPhone" type="tel" maxlength="20" autocomplete="tel" placeholder="+77001234567">
+        <p class="semester-note" id="emailLinkStatus" role="status"></p>
+        <button class="registration-action" type="button" id="verifyAccountEmailBtn" hidden>Отправить письмо для подтверждения адреса</button>
+        <div class="registration-actions">
+          <button class="registration-action" type="button" id="telegramLinkBtn">Подключить Telegram</button>
+          <a id="telegramBotLink" target="_blank" rel="noopener noreferrer" hidden>Открыть бота в Telegram</a>
+          <button class="registration-action" type="button" id="telegramUnlinkBtn" hidden>Отключить Telegram</button>
+        </div>
+        <div id="telegramQrPanel" hidden>
+          <p class="semester-note">На компьютере: отсканируйте QR-код телефоном. На телефоне: нажмите «Открыть бота в Telegram». В Telegram нажмите Start — сайт подключится автоматически.</p>
+          <img id="telegramQr" alt="QR-код подключения Telegram" width="200" height="200" style="background:#fff;padding:8px;border-radius:8px;max-width:100%;height:auto">
+        </div>
+        <details id="telegramManual" hidden>
+          <summary>Не удалось открыть ссылку?</summary>
+          <button class="registration-action" type="button" id="telegramConfirmBtn" hidden>Проверить подключение</button>
+          <p class="semester-note">Если кнопка Start не сработала, отправьте эту команду целиком боту в личном чате. Код действует 10 минут и предназначен только для бота.</p>
+          <input class="waitlist-select" id="telegramCommand" readonly aria-label="Команда подключения Telegram">
+          <button class="registration-action" type="button" id="telegramCopyCommand">Скопировать команду</button>
+        </details>
+        <p class="semester-note" id="telegramLinkStatus" role="status"></p>
         <button class="generate-btn" type="submit">Subscribe to full section</button>
       </form>
       <p class="semester-note" id="gatewayStatus"></p>
@@ -3444,10 +3480,22 @@ try {
       <section id="studentSeatPanel">
       <h2>Active seat subscriptions</h2><div id="seatSubscriptions"></div>
       <h2>Seat notifications</h2><div id="seatNotifications" class="waitlist-log" aria-live="polite"></div>
+      <div class="registration-actions">
+        <button class="registration-action" id="readCourseNoticesBtn" type="button">Прочитать уведомления</button>
+        <button class="registration-action" id="enableCourseBrowserNoticesBtn" type="button">Включить уведомления браузера</button>
+      </div>
+      <p class="semester-note" id="courseBrowserNoticeStatus"></p>
+      <h2>Telegram / email delivery</h2><div id="seatDeliveryLog" class="waitlist-log"></div>
       </section>
     </div>
   </div>
 </div>
-<script src="/static/registration.js"></script>
+<div id="courseNoticeToast" hidden role="status" aria-live="polite">
+  <strong id="courseNoticeToastTitle"></strong><p id="courseNoticeToastText"></p>
+  <button type="button" id="openCourseNoticeBtn">Открыть</button>
+  <button type="button" id="closeCourseNoticeBtn" aria-label="Закрыть уведомление">Закрыть</button>
+</div>
+<script src="/static/registration.js?v=20261028-email1"></script>
+<script src="/static/course-notifications.js?v=20261019-notices1"></script>
 </body>
 </html>

@@ -63,12 +63,33 @@ class MailerTests(unittest.TestCase):
             'SMTP_USE_TLS':'true','SMTP_USE_SSL':'false'}), patch('mailer.smtplib.SMTP') as smtp:
             client = smtp.return_value.__enter__.return_value
             client.send_message.return_value = {}
+            client.esmtp_features = {'auth':'LOGIN PLAIN XOAUTH2'}
             mailer.send_email('recipient@example.test','Subject','Body')
             client.starttls.assert_called_once()
-            client.login.assert_called_once_with('sender@gmail.com','test-only')
+            client.auth.assert_called_once_with('PLAIN', client.auth_plain, initial_response_ok=False)
+            self.assertEqual(client.user, 'sender@gmail.com')
+            self.assertEqual(client.password, 'test-only')
             client.send_message.return_value = {'recipient@example.test':(550,b'rejected')}
             with self.assertRaises(RuntimeError):
                 mailer.send_email('recipient@example.test','Subject','Body')
+
+    def test_disconnect_identifies_phase_without_exposing_private_data(self):
+        import smtplib
+        with patch.dict(os.environ, {'SMTP_HOST':'smtp.gmail.com', 'SMTP_FROM':'sender@gmail.com',
+                                     'SMTP_USERNAME':'sender@gmail.com', 'SMTP_PASSWORD':'test-secret',
+                                     'SMTP_USE_TLS':'true','SMTP_USE_SSL':'false'}), patch('mailer.smtplib.SMTP') as smtp:
+            client = smtp.return_value.__enter__.return_value
+            client.esmtp_features = {'auth':'PLAIN LOGIN'}
+            for method, phase in [('starttls','шифрование'), ('auth','вход'), ('send_message','отправка')]:
+                for name in ('starttls','auth','send_message'):
+                    getattr(client, name).side_effect = None
+                getattr(client, method).side_effect = smtplib.SMTPServerDisconnected('private data')
+                with self.assertRaises(smtplib.SMTPServerDisconnected) as caught:
+                    mailer.send_email('recipient@example.test','Subject','Body')
+                message = mailer.diagnostic(caught.exception)
+                self.assertIn('этап: ' + phase, message)
+                self.assertNotIn('private data', message)
+                self.assertNotIn('test-secret', message)
 
     def test_missing_configuration_is_not_a_delivery(self):
         with patch.dict(os.environ, {'SMTP_HOST':'','SMTP_FROM':'','SMTP_USERNAME':''}):

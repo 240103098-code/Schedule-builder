@@ -34,8 +34,7 @@ APP_BASE_URL=http://127.0.0.1:8000
 ```
 
 Use your site's reachable address for `APP_BASE_URL` when opening links from another
-device or deploying the app. `.env.example` contains example settings; `.env` is not
-automatically loaded. Never commit a real password.
+device or deploying the app. `.env.example` contains example settings; `.env` is automatically loaded at startup; existing process variables take precedence. Never commit a real password.
 
 ## Confirmation and recovery
 
