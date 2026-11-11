@@ -29,6 +29,8 @@
         var td = document.createElement('td'), content = document.createElement('div'); content.className = 'lesson-cell-content';
         row.events.filter(function(event){ return event.day === day; }).forEach(function(event){
           var card = document.createElement('div'); card.className = 'lesson-card' + (event.type === 'practice' ? ' is-practice' : ''); card.style.background = event.color || '#f6c344';
+          ['conflict','preview','faded','locked'].forEach(function(flag){ if(event[flag]) card.classList.add('is-' + flag); });
+          if(event.flag){ var mark = document.createElement('span'); mark.className = 'lesson-flag' + (event.preview ? ' is-preview' : ''); mark.textContent = event.flag; card.appendChild(mark); }
           [[event.type === 'practice' ? 'Практика' : 'Лекция','lesson-type'],[event.name,'lesson-name'],[event.section,'lesson-meta'],[weekLabel(event.week_pattern),'lesson-meta']].forEach(function(part){ var span = document.createElement('span'); span.className = part[1]; span.textContent = part[0]; card.appendChild(span); });
           if(event.quota !== undefined){ var seats = document.createElement('span'); seats.className = 'lesson-meta'; seats.textContent = event.available + '/' + event.quota + ' мест'; card.appendChild(seats); }
           content.appendChild(card);
