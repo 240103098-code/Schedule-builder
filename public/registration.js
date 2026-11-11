@@ -220,12 +220,16 @@
         var extraSeat = request.flags.indexOf('additional_seat') >= 0;
         var selectedPair = extraSeat ? seatPicker(block, request, data) : null;
         var comment = document.createElement('textarea'); comment.className = 'waitlist-select';
-        comment.maxLength = 1000; comment.placeholder = 'Decision comment'; comment.setAttribute('aria-label', 'Decision comment for ' + request.course);
+        comment.maxLength = 1000; comment.placeholder = 'Feedback for the student (required to reject)'; comment.setAttribute('aria-label', 'Decision feedback for ' + request.course);
         comment.value = comments.get(request.id) || '';
         comment.addEventListener('input', function () { comments.set(request.id, comment.value); });
         block.appendChild(comment);
         (request.status === 'pending' ? ['approved', 'rejected'] : ['approved']).forEach(function (decision) {
-          var action = button(block, decision === 'approved' ? (extraSeat ? 'Approve & grant 1 seat' : 'Approve') : 'Reject', function () {
+          var action = button(block, decision === 'approved' ? (extraSeat ? 'Approve & grant 1 seat' : 'Approve Override') : (extraSeat ? 'Reject' : 'Reject Override'), function () {
+            if (decision === 'rejected' && !comment.value.trim()) {
+              status('Feedback comments are required to reject a request. The student receives them by email.', true);
+              comment.focus(); return;
+            }
             mutate('/api/registration/overrides/' + request.id + '/decision', 'POST', Object.assign(
               {decision: decision, comment: comment.value}, decision === 'approved' && selectedPair ? selectedPair() : {}));
           }, decision === 'approved' ? 'primary' : 'reject');

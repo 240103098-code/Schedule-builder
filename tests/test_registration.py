@@ -73,7 +73,9 @@ class RegistrationTests(unittest.TestCase):
         self.assertEqual(self.call('GET', '', user=4).json()['requests'], [])
         decision = {'decision':'approved', 'comment':'Approved by department'}
         self.assertEqual(self.call('POST', f'/overrides/{request_id}/decision', user=1, data=decision).status_code, 403)
-        self.assertEqual(self.call('POST', f'/overrides/{request_id}/decision', user=3, data=decision).status_code, 404)
+        denied = self.call('POST', f'/overrides/{request_id}/decision', user=3, data=decision)
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(denied.json()['detail'], 'Unauthorized: Student belongs to another department')
         approved = self.call('POST', f'/overrides/{request_id}/decision', user=2, data=decision)
         self.assertEqual(approved.status_code, 200, approved.text)
         self.assertEqual(len(self.waitlists.snapshot(1)['enrollments']), 1)
@@ -82,8 +84,16 @@ class RegistrationTests(unittest.TestCase):
 
     def test_rejection_blocks_direct_join_and_worker_promotion(self):
         request_id = self.request_override()
-        result = self.call('POST', f'/overrides/{request_id}/decision', user=2, data={'decision':'rejected'})
+        missing = self.call('POST', f'/overrides/{request_id}/decision', user=2, data={'decision':'rejected'})
+        self.assertEqual(missing.status_code, 422)  # feedback is mandatory for a rejection
+        result = self.call('POST', f'/overrides/{request_id}/decision', user=2,
+                           data={'decision':'rejected', 'comment':'Complete the prerequisite first.'})
         self.assertEqual(result.status_code, 200)
+        with self.waitlists.transaction() as db:
+            email = db.query(self.waitlists.Outbox).filter_by(user_id=1, channel='email').filter(
+                self.waitlists.Outbox.payload['event'].as_string() == 'advisor_decision').one()
+            self.assertIn('Complete the prerequisite first.', email.payload['message'])
+            self.assertIn('stays locked', email.payload['message'])
         self.waitlists.join(1, self.pair)
         self.waitlists.demo_seat(1, self.pair)
         with self.waitlists.transaction() as db:
@@ -91,6 +101,24 @@ class RegistrationTests(unittest.TestCase):
         self.assertEqual(self.waitlists.snapshot(1)['enrollments'], [])
         self.assertIn('rejected', self.waitlists.snapshot(1)['waitlists'][0]['reason'])
         self.assertEqual(self.call('POST', '/overrides', data=self.override.model_dump()).status_code, 409)
+
+    def test_scenario_1_41_credits_exceed_default_40_limit_and_approval_unlocks(self):
+        with self.sessions.begin() as db:
+            db.get(self.service.Policy, 'A').restricted = 0
+        self.service.credits['A'] = 41
+        request_id = self.request_override()
+        request = self.call('GET', '').json()['requests'][0]
+        self.assertEqual((request['flags'], request['credit_total']), (['overload'], 41))
+        self.waitlists.join(1, self.pair)
+        self.waitlists.demo_seat(1, self.pair)
+        self.assertEqual(self.waitlists.snapshot(1)['enrollments'], [])
+        approved = self.call('POST', f'/overrides/{request_id}/decision', user=2, data={'decision':'approved'})
+        self.assertEqual(approved.json()['requests'][0]['status'], 'approved')
+        self.assertEqual(len(self.waitlists.snapshot(1)['enrollments']), 1)
+        self.service.credits['A'] = 40
+        with self.waitlists.transaction() as db:
+            flags, total, _ = self.service.flags(db, 4, db.get(self.waitlists.Section, 1), [])
+        self.assertEqual((flags, total), ([], 40))
 
     def test_overload_approval_does_not_override_account_hold(self):
         with self.sessions.begin() as db:
@@ -240,7 +268,7 @@ class RegistrationTests(unittest.TestCase):
         with self.sessions.begin() as db:
             db.query(self.service.Policy).delete()
         request_id = self.request_override()
-        self.service.decide(2, request_id, DecisionInput(decision='rejected'))
+        self.service.decide(2, request_id, DecisionInput(decision='rejected', comment='Not enough justification.'))
         self.waitlists.join(1, self.pair)
         self.waitlists.demo_seat(1, self.pair)
         self.assertEqual(self.waitlists.snapshot(1)['enrollments'], [])
@@ -288,7 +316,7 @@ class RegistrationTests(unittest.TestCase):
         self.assertEqual(self.call('POST', '/seat-requests', data=payload).status_code, 409)
         request_id = result.json()['requests'][0]['id']
         self.assertEqual(self.call('POST', f'/overrides/{request_id}/decision', user=3,
-                                  data={'decision':'approved'}).status_code, 404)
+                                  data={'decision':'approved'}).status_code, 403)
         self.assertEqual(self.call('POST', f'/overrides/{request_id}/decision', user=2,
                                   data={'decision':'approved', 'comment':'Seat request reviewed'}).status_code, 422)
         self.assertEqual(self.call('POST', f'/overrides/{request_id}/decision', user=2,
@@ -404,6 +432,32 @@ class RegistrationTests(unittest.TestCase):
         self.assertEqual(self.approve_seat(request_id).status_code, 200)
         self.assertEqual(self.approve_seat(request_id).status_code, 409)
 
+    def test_scenario_2_seat_alert_limit_of_five(self):
+        with self.sessions.begin() as db:
+            for index in range(5):
+                db.add(self.waitlists.Section(term=self.waitlists.term, section=f'X.{index}', course='A', name='A',
+                    parent=None, meetings=[], quota=1, occupied=1, reserved=0))
+        for index in range(5):
+            self.assertEqual(self.call('PUT', '/subscriptions', data={'section':f'X.{index}', 'channels':['in_app']}).status_code, 200)
+        sixth = self.call('PUT', '/subscriptions', data={'section':'A.L', 'channels':['in_app']})
+        self.assertEqual(sixth.status_code, 409)
+        self.assertTrue(sixth.json()['detail'].startswith('Maximum seat alert limit of 5 courses reached'))
+        self.assertEqual(len(self.call('GET', '').json()['subscriptions']), 5)
+        # Changing channels of an existing alert is not a new subscription.
+        updated = self.call('PUT', '/subscriptions', data={'section':'X.0', 'channels':['email']})
+        self.assertEqual(updated.status_code, 200, updated.text)
+        first = next(s['id'] for s in updated.json()['subscriptions'] if s['section'] == 'X.0')
+        self.assertEqual(self.call('DELETE', f'/subscriptions/{first}').status_code, 200)
+        self.assertEqual(self.call('PUT', '/subscriptions', data={'section':'A.L', 'channels':['in_app']}).status_code, 200)
+
+    def test_seat_alert_delivery_payload_contains_registration_link(self):
+        self.call('PUT', '/subscriptions', data={'section':'A.L', 'channels':['push']})
+        self.inventory('link-open', 1, 0)
+        with self.waitlists.transaction() as db:
+            event = db.query(self.waitlists.Outbox).filter_by(user_id=1, channel='push').one()
+            self.assertTrue(event.payload['url'].endswith('/?tab=waitlists&section=A.L'))
+            self.assertIn(event.payload['url'], event.payload['message'])
+
     def test_in_app_alert_is_immediate_persisted_and_deduplicated_without_gateway(self):
         result = self.call('PUT', '/subscriptions', data={'section':'A.L','channels':['in_app']})
         self.assertEqual(result.status_code, 200, result.text)
@@ -416,6 +470,8 @@ class RegistrationTests(unittest.TestCase):
         self.assertEqual(inbox['items'][0]['course'], 'A')
         self.assertEqual(inbox['items'][0]['section'], 'A.L')
         self.assertEqual(inbox['items'][0]['kind'], 'seat_available')
+        # US6QATest scenario 1: the alert links straight to the registration page for that section.
+        self.assertIn('/?tab=waitlists&section=A.L', inbox['items'][0]['message'])
         self.inventory('inbox-open', 1, 0)
         self.inventory('inbox-still-open', 2, 0)
         self.assertEqual(len(self.call('GET', '/notifications').json()['items']), 1)

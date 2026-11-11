@@ -83,6 +83,7 @@ class WaitlistService:
             status = Column(String(20), nullable=False, default="waiting")
             reason = Column(String(500), nullable=False, default="")
             created_at = Column(Integer, nullable=False)
+            hold_since = Column(Integer, nullable=True)  # first time an account hold blocked this entry
             __table_args__ = (UniqueConstraint("term", "user_id", "course"),)
 
         class Enrollment(base):
@@ -127,7 +128,32 @@ class WaitlistService:
         self.Section, self.Entry, self.Enrollment = Section, Entry, Enrollment
         self.Hold, self.Outbox, self.Event = Hold, Outbox, Event
         base.metadata.create_all(bind=sessions.kw["bind"])
+        self.add_missing_columns(sessions.kw["bind"])
         self.sync_curriculum(curriculum)
+
+    @staticmethod
+    def add_missing_columns(engine):
+        """Upgrade databases created before the 24-hour hold priority window existed."""
+        from sqlalchemy import inspect
+        columns = {column["name"] for column in inspect(engine).get_columns("waitlist_entries")}
+        if "hold_since" not in columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE waitlist_entries ADD COLUMN hold_since INTEGER"))
+
+    @staticmethod
+    def hold_window():
+        return max(1, int(os.getenv("HOLD_PRIORITY_SECONDS", str(24 * 60 * 60))))
+
+    def describe_conflict(self, meetings, rows):
+        """Human-readable detail of the first overlap with an existing enrollment."""
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        for row in rows:
+            for a in meetings:
+                for b in row.meetings:
+                    if self.conflicts([a], [b]):
+                        return (f"{row.course} ({days[int(a['day_of_week']) - 1]} "
+                                f"{max(a['start_time'], b['start_time'])}–{min(a['end_time'], b['end_time'])})")
+        return "an existing enrollment"
 
     def sync_curriculum(self, curriculum):
         """Refresh fixed meeting times without resetting seat inventory or queue order."""
@@ -230,20 +256,40 @@ class WaitlistService:
             student = db.get(self.user_model, entry.user_id)
             local_student = (getattr(student, 'local_account', 0) and self.academic and
                 os.getenv('APP_ENV', 'development').lower() == 'development')
+            # retain=True keeps this student's priority: later students sharing a section wait.
+            retain = True
             if not getattr(student, "email_verified", True) and not local_student:
                 reason = "Verify your email address before enrollment."
-            elif not hold or (not self.academic and time.time() - hold.verified_at > int(os.getenv("HOLD_VERIFICATION_TTL_SECONDS", "900"))):
+            elif (not hold or (not self.academic and time.time() - hold.verified_at > int(os.getenv("HOLD_VERIFICATION_TTL_SECONDS", "900")))):
                 reason = "Account hold status has not been verified recently."
             elif hold.on_hold:
-                reason = ("Account hold: " + (hold.reason or "Contact the university."))[:500]
+                now = int(time.time())
+                entry.hold_since = entry.hold_since or now
+                hours = max(1, round(self.hold_window() / 3600))
+                if now - entry.hold_since < self.hold_window():
+                    reason = ("Account hold: " + (hold.reason or "Contact the university.") +
+                        f" You are not eligible for registration until it is resolved. Resolve the hold within {hours} hours"
+                        " to retain your waitlist priority.")[:500]
+                else:
+                    retain = False
+                    reason = (f"Account hold was not resolved within {hours} hours. Your waitlist priority was released: "
+                        "eligible students behind you can now be enrolled first. Resolve the hold to be enrolled again.")[:500]
             else:
                 meetings = lecture.meetings + practice.meetings
-                if any(self.conflicts(meetings, row.meetings) for row in active if row.user_id == entry.user_id):
-                    reason = "Schedule conflict with an existing enrollment. Your queue position is retained."
+                clashing = [row for row in active if row.user_id == entry.user_id and self.conflicts(meetings, row.meetings)]
+                if clashing:
+                    # US4: a conflicting student is skipped so the next eligible student gets the seat.
+                    retain = False
+                    reason = ("Schedule conflict with " + self.describe_conflict(meetings, clashing) +
+                        f": you were skipped for {entry.course} ({entry.lecture} / {entry.practice}) and the next eligible "
+                        "student may be enrolled. Your queue position is retained.")[:500]
+            if not (hold and hold.on_hold):
+                entry.hold_since = None
             if reason:
                 entry.status, entry.reason = "blocked", reason
                 self.enqueue(db, entry, "enrollment_blocked", reason)
-                blocked_sections.update(requested)
+                if retain:
+                    blocked_sections.update(requested)
                 continue
             entry.status, entry.reason = "waiting", ""
             extra = 1 if grant else 0
@@ -464,7 +510,7 @@ class WaitlistService:
                 if not 200 <= response.status < 300:
                     raise RuntimeError("Billing API did not accept the adjustment event")
             return
-        mailer.send_email(email, "Course enrollment update", payload["message"]
+        mailer.send_email(email, payload.get("subject") or "Course enrollment update", payload["message"]
             + "\nTerm: " + payload["term"] + ("\nAcademic course enrollment demonstration." if self.academic else ""), key)
 
     def dispatch(self, limit=25):

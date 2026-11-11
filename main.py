@@ -21,6 +21,7 @@ from waitlist_service import install_waitlists
 from registration_service import install_registration
 from conflict_resolver import install_conflict_resolver
 from degree_gaps import install_degree_gaps
+from prerequisites import install_prerequisite_check
 import mailer
 
 
@@ -372,6 +373,11 @@ def normalize_curriculum(payload: CurriculumSchema) -> tuple[str, list[dict], Op
                         "official": prerequisite.get("official")
                         if isinstance(prerequisite.get("official"), bool)
                         else None,
+                        "type": "corequisite"
+                        if prerequisite.get("corequisite") is True
+                        or str(prerequisite.get("type", "")).strip().lower()
+                        in {"corequisite", "co-requisite", "coreq", "co"}
+                        else "prerequisite",
                     }
                 )
             equivalents = []
@@ -653,6 +659,7 @@ def curriculum_for_user(db: Session, user_id: int) -> tuple[dict, str]:
 
 
 install_degree_gaps(app, SessionLocal, registration, conflict_resolver, UserModel, get_current_user, curriculum_for_user)
+install_prerequisite_check(app, get_current_user, curriculum_for_user, SessionLocal)
 
 
 @app.get('/api/auth/config')

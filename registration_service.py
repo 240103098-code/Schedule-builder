@@ -18,6 +18,17 @@ import qrcode.image.svg
 import mailer
 
 
+CROSS_DEPARTMENT = 'Unauthorized: Student belongs to another department'
+SEAT_ALERT_LIMIT = 5
+
+
+def registration_url(section):
+    """Direct link that opens the registration (Waitlists) page with the section preselected."""
+    from urllib.parse import quote
+    base = os.getenv('APP_BASE_URL', 'http://127.0.0.1:8000').rstrip('/')
+    return f'{base}/?tab=waitlists&section={quote(section)}'
+
+
 class OverrideInput(BaseModel):
     lecture: str = Field(min_length=1, max_length=100)
     practice: str = Field(min_length=1, max_length=100)
@@ -279,7 +290,7 @@ class RegistrationService:
         flags = ['restricted'] if policy and policy.restricted else []
         courses = {e.course for e in active if e.user_id == user_id} | {lecture.course}
         total = sum(self.credits.get(code, 0) for code in courses)
-        if total > int(os.getenv('REGISTRATION_CREDIT_LIMIT', '30')):
+        if total > int(os.getenv('REGISTRATION_CREDIT_LIMIT', '40')):
             flags.append('overload')
         return flags, total, policy
 
@@ -383,13 +394,16 @@ class RegistrationService:
             profile = db.get(self.Profile, advisor_id)
             if not profile or profile.role != 'advisor':
                 raise HTTPException(403, 'Advisor role required.')
-            row = db.query(self.Override).filter_by(id=request_id, term=self.waitlists.term,
-                department=profile.department).first()
+            row = db.query(self.Override).filter_by(id=request_id, term=self.waitlists.term).first()
             if not row:
-                raise HTTPException(404, 'Request not found in your department.')
+                raise HTTPException(404, 'Request not found.')
             student = db.get(self.Profile, row.user_id)
-            if not student or student.department != profile.department or row.user_id == advisor_id:
-                raise HTTPException(403, 'Student is outside your assigned department.')
+            if (row.department != profile.department or not student or student.department != profile.department
+                    or row.user_id == advisor_id):
+                # Nothing is modified: the advisor may only act within the assigned department.
+                raise HTTPException(403, CROSS_DEPARTMENT)
+            if payload.decision == 'rejected' and not payload.comment.strip():
+                raise HTTPException(422, 'Feedback comments are required to reject a request.')
             legacy_allocation = (row.status == 'approved' and payload.decision == 'approved' and
                 'additional_seat' in row.flags and not db.query(self.SeatGrant).filter_by(request_id=row.id).first())
             if row.status != 'pending' and not legacy_allocation:
@@ -429,9 +443,26 @@ class RegistrationService:
                 ('Дополнительное место выделено для ' if payload.decision == 'approved' and 'additional_seat' in row.flags else
                  'Заявка одобрена: ' if payload.decision == 'approved' else 'Заявка отклонена: ') +
                 row.course + ' · ' + self.catalog.get(row.course, row.course) + ('. ' + row.comment if row.comment else ''))
+            self.decision_email(db, row)
             db.flush()
             self.waitlists.promote(db)
         self.waitlists.wake.set()
+
+    def decision_email(self, db, row):
+        """Email the student the advisor's decision and feedback (transactional outbox)."""
+        course = row.course + ' · ' + self.catalog.get(row.course, row.course)
+        if row.status == 'approved':
+            message = (f'Your advisor approved your request for {course}. Registration for this course is now unlocked.'
+                       + ('\nAdvisor feedback: ' + row.comment if row.comment else ''))
+        else:
+            message = (f'Your advisor rejected your request for {course}. The course stays locked for registration.'
+                       '\nAdvisor feedback: ' + row.comment)
+        key = f'decision:{row.id}:{row.status}:email'
+        if not db.query(self.waitlists.Outbox).filter_by(key=key).first():
+            db.add(self.waitlists.Outbox(key=key, user_id=row.user_id, channel='email',
+                payload={'event':'advisor_decision', 'term':self.waitlists.term, 'course':row.course,
+                         'subject':'Advisor decision: ' + row.course + ' — ' + row.status,
+                         'decision':row.status, 'comment':row.comment, 'message':message}))
 
     def subscribe(self, user_id, payload):
         with self.waitlists.transaction() as db:
@@ -446,6 +477,11 @@ class RegistrationService:
             if self.waitlists.free(section, self.waitlists.active(db)):
                 raise HTTPException(409, 'Seats are available already. Subscribe when the section is full.')
             row = db.query(self.Subscription).filter_by(term=self.waitlists.term, user_id=user_id, section=payload.section).first()
+            if not (row and row.active):
+                active = db.query(self.Subscription).filter_by(term=self.waitlists.term, user_id=user_id, active=1).count()
+                if active >= SEAT_ALERT_LIMIT:
+                    raise HTTPException(409, f'Maximum seat alert limit of {SEAT_ALERT_LIMIT} courses reached. '
+                        'Remove an existing alert to add a new one.')
             if not row:
                 row = self.Subscription(term=self.waitlists.term, user_id=user_id, section=payload.section)
                 db.add(row)
@@ -492,15 +528,17 @@ class RegistrationService:
                 continue
             for sub in db.query(self.Subscription).filter_by(term=self.waitlists.term, section=section.section, active=1):
                 sub.generation += 1
+                link = registration_url(section.section)
                 self.notice(db, f'seat:{sub.id}:{sub.generation}', sub.user_id, section.course, section.section,
-                    'seat_available', f'Освободилось место: {section.course} · {section.name}, секция {section.section}. Доступность может измениться; очередь записи сохраняется.')
+                    'seat_available', f'Освободилось место: {section.course} · {section.name}, секция {section.section}. Доступность может измениться; очередь записи сохраняется. Записаться: {link}')
                 for channel in sub.channels:
                     if channel == 'in_app':
                         continue
                     db.add(self.waitlists.Outbox(key=f'seat:{sub.id}:{sub.generation}:{channel}', user_id=sub.user_id,
                         channel=channel, payload={'event':'seat_available', 'term':self.waitlists.term,
-                            'section':section.section, 'subscription_id':sub.id,
-                            'message':f'A seat opened in {section.course}, section {section.section}. Availability may change; waitlist order still applies.'}))
+                            'section':section.section, 'subscription_id':sub.id, 'url':link,
+                            'message':f'A seat opened in {section.course}, section {section.section}. Availability may change; waitlist order still applies.'
+                                      f'\nOpen course registration: {link}'}))
         db.flush()
 
     def notice(self, db, key, user_id, course, section, kind, message):

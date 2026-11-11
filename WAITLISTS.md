@@ -16,17 +16,22 @@ Waitlist inventory is separate from schedule planning.
    receives both seats atomically. Real email and simulated tuition-adjustment events appear below.
 4. To demonstrate FIFO, join the same sections from another student account, then drop
    the first account's enrollment. The next queued account enrolls automatically.
-5. To demonstrate holds, click **Add account hold** before opening the seat. Enrollment
-   remains blocked, with a warning and the original position retained. Click
-   **Clear account hold** to resume enrollment.
+5. To demonstrate holds, click **Add account hold** before opening the seat. The account is
+   flagged as ineligible and the student is told to resolve the hold within 24 hours to
+   retain waitlist priority. During those 24 hours later students sharing the sections wait;
+   afterwards the priority is released and the next eligible student may be enrolled.
+   Click **Clear account hold** to resume enrollment (`HOLD_PRIORITY_SECONDS` changes the window).
 6. To demonstrate conflicts, enroll in one course, then join sections of another course
-   with overlapping meetings. The warning is recorded and the student stays queued.
-   Drop the conflicting enrollment to allow processing to resume.
+   with overlapping meetings from two accounts. The first student is skipped with a
+   notification naming the conflicting course and time, and the next eligible student
+   is enrolled. The skipped student keeps the queue entry.
 
 Leave a waitlist with **Leave waitlist**. Use **Drop enrollment** to release seats.
 Rejoining places the student at the back of the queue. A repeated join or drop is
-idempotent. A blocked earlier student prevents later entries sharing either requested
-section from bypassing that student; unrelated sections continue processing.
+idempotent. A student blocked by a pending advisor decision, an unverified account or a
+hold within its 24-hour window keeps priority: later entries sharing a requested section wait.
+A schedule conflict does not hold the queue: that student is skipped. Unrelated sections
+continue processing.
 
 ## Processing and delivery
 

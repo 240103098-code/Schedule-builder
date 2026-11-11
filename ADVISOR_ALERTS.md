@@ -10,6 +10,9 @@ waiting enrollment; rejection keeps the course blocked. Backend enforcement runs
 on every enrollment attempt and worker promotion. Approval is scoped to the term,
 course, selected lecture/practice, department, flags and approved credit total.
 Seat capacity, account holds and schedule conflicts continue to apply.
+Rejecting requires feedback comments. The decision and the advisor's feedback are emailed to the
+student (transactional outbox). An advisor opening another department's request receives
+403 "Unauthorized: Student belongs to another department" and nothing is modified.
 
 **US6 — Course Seat Alert Notifications.** Students subscribe to a full lecture
 or practice section with any combination of Push, Telegram and Email. Telegram requires a linked private bot chat. A transition from zero to positive free seats queues
@@ -17,7 +20,9 @@ one event per subscribed channel in the same transaction as the seat update.
 Inventory webhooks, simulation and dropped enrollments all trigger this check.
 Unchanged inventory, a still-full section and replayed webhook events do not send
 new alerts. Each subsequent full-to-open transition may send a new alert.
-Unsubscribe stops future events and cancels pending deliveries.
+Unsubscribe stops future events and cancels pending deliveries. A student can keep at most
+5 active alerts ("Maximum seat alert limit of 5 courses reached"). Every alert contains a direct
+link (`APP_BASE_URL/?tab=waitlists&section=…`) that opens course registration with the section selected.
 
 Events are recorded before automatic waitlist promotion: opening a seat does not
 reserve it for an alert subscriber or bypass FIFO. Availability may change before
@@ -82,7 +87,7 @@ or pending request disables duplicate submission for the same course.
    request is refused. Requests are final for that course and term.
 
 Credit overload uses active enrollments for the current term plus the requested
-course and the official catalog ECTS. Default limit: 30; configure
+course and the official catalog ECTS. Default limit: 40 (41 credits needs approval); configure
 REGISTRATION_CREDIT_LIMIT to change it. This story covers restricted-course and
 overload approvals; existing prerequisite guidance is unchanged.
 

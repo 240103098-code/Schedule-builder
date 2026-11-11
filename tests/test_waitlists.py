@@ -101,7 +101,8 @@ class WaitlistTests(unittest.TestCase):
         self.assertEqual(len(self.service.snapshot(1)['enrollments']), 1)
         self.assertEqual(self.service.snapshot(2)['enrollments'], [])
 
-    def test_conflict_warns_without_skipping_student(self):
+    def test_conflict_skips_student_and_enrolls_next_eligible(self):
+        # US4QATest scenario 2: #1 has a conflicting enrollment, so the seat goes to #2.
         self.service.join(1, self.pair)
         self.service.demo_seat(1, self.pair)
         other = JoinRequest(lecture='B.L',practice='B.P')
@@ -110,11 +111,36 @@ class WaitlistTests(unittest.TestCase):
         self.service.demo_seat(2, other)
         blocked = self.service.snapshot(1)['waitlists'][1]
         self.assertEqual(blocked['status'], 'blocked')
-        self.assertIn('Schedule conflict', blocked['reason'])
-        self.assertEqual(self.service.snapshot(2)['enrollments'], [])
-        self.assertTrue(any('Schedule conflict' in n['message'] for n in self.service.snapshot(1)['notifications']))
+        self.assertIn('Schedule conflict with A (Mon 09:00–09:50)', blocked['reason'])
+        self.assertEqual([e['course'] for e in self.service.snapshot(2)['enrollments']], ['B'])
+        self.assertTrue(any('skipped' in n['message'] and 'Mon 09:00' in n['message']
+                            for n in self.service.snapshot(1)['notifications']))
+        # The skipped student keeps the queue entry and is enrolled once a seat and no conflict exist.
         self.service.drop(1, self.service.snapshot(1)['enrollments'][0]['id'])
+        self.service.drop(2, self.service.snapshot(2)['enrollments'][0]['id'])
         self.assertEqual(self.service.snapshot(1)['enrollments'][0]['course'], 'B')
+
+    def test_hold_retains_priority_for_24_hours_then_releases_it(self):
+        # US4QATest scenario 3: ineligible while on hold, told to resolve within 24 hours.
+        self.service.demo_hold(1, True)
+        self.service.join(1, self.pair)
+        self.service.join(2, self.pair)
+        self.service.demo_seat(2, self.pair)
+        entry = self.service.snapshot(1)['waitlists'][0]
+        self.assertEqual(entry['status'], 'blocked')
+        self.assertIn('within 24 hours to retain your waitlist priority', entry['reason'])
+        self.assertEqual(self.service.snapshot(2)['enrollments'], [])
+        later = time.time() + 24 * 60 * 60 + 1
+        with patch('waitlist_service.time.time', return_value=later):
+            with self.service.transaction() as db:
+                self.service.promote(db)
+        self.assertIn('priority was released', self.service.snapshot(1)['waitlists'][0]['reason'])
+        self.assertEqual(len(self.service.snapshot(2)['enrollments']), 1)
+        self.assertTrue(any('priority was released' in n['message'] for n in self.service.snapshot(1)['notifications']))
+        # Clearing the hold resets the window for the next time.
+        self.service.demo_hold(1, False)
+        with self.sessions() as db:
+            self.assertIsNone(db.query(self.service.Entry).filter_by(user_id=1).one().hold_since)
 
     def test_parallel_joins_and_drops_do_not_overbook_or_reorder(self):
         # Distinct process-style locks ensure SQLite, not just a Python mutex,
