@@ -186,6 +186,14 @@ try {
     box-shadow:0 4px 12px rgba(209,73,91,.18);
   }
   .prerequisite-check.ok{background:#E5F4EF; color:#245D52; border-left:3px solid #5FB3B3;}
+  .prerequisite-check .prerequisite-detail{font-weight:500; margin-top:4px; text-transform:none;}
+  .semester-course.has-prereq-error{color:var(--danger);}
+  .semester-course.has-schedule-conflict{color:var(--danger); font-weight:600;}
+  .semester-course.has-schedule-conflict span::before{content:'⚠ ';}
+  .no-schedule-warning{background:var(--danger); color:#fff; font-weight:700; border-radius:8px; padding:12px 14px; margin:0 auto 10px; max-width:640px; line-height:1.45;}
+  .conflict-diagnosis{list-style:none; padding:0; margin:14px auto 0; max-width:640px; text-align:left; display:grid; gap:8px;}
+  .conflict-diagnosis li{border:1px solid var(--danger); border-left-width:4px; border-radius:8px; padding:10px 12px; background:var(--surface); font-size:13px; line-height:1.55;}
+  .conflict-diagnosis .conflict-sections{display:block; margin-top:4px; font:11.5px 'IBM Plex Mono', monospace; color:var(--ink-soft);}
   .prerequisite-check.info{background:#F7EDD8; color:#6D4A15; border-left:3px solid var(--accent);}
   .icon-btn{
     border:none;
@@ -1264,7 +1272,13 @@ try {
         <option value="Fri">Friday</option><option value="Sat">Saturday</option>
         <option value="Sun">Sunday</option>
       </select>
-      <div class="semester-note">Your day off stays free. Schedules with shorter gaps and fewer days with only 1–2 lessons appear first.</div>
+      <label class="section-label" for="timeWindowSelect">PREFERRED TIME SLOTS</label>
+      <select id="timeWindowSelect">
+        <option value="">Any time</option>
+        <option value="morning">Morning only (before 12:00)</option>
+        <option value="afternoon">Afternoon only (12:00–17:00)</option>
+      </select>
+      <div class="semester-note">Your day off stays free and every class stays inside the chosen time slots. Changing a filter updates the generated schedules immediately. Schedules with shorter gaps and fewer days with only 1–2 lessons appear first.</div>
     </div>
 
     <button class="generate-btn" id="generateBtn">Generate schedules</button>
@@ -1725,6 +1739,7 @@ try {
       input.checked = course.kind === 'required' || (course.selected_in_curriculum && courseSemester(course) === semester);
       input.disabled = !course.schedule || !Array.isArray(course.schedule.lecture_sections);
       if(input.disabled) input.checked = false;
+      input.dataset.noSections = input.disabled ? '1' : '';
       var copy = document.createElement('span');
       copy.textContent = course.code + ' · ' + course.name + ' (' + course.credits + ' ECTS)'
         + (course.kind === 'elective' ? ' · elective' : '')
@@ -1732,6 +1747,66 @@ try {
       label.append(input, copy); semesterCoursesEl.appendChild(label);
     });
     updateSelectedCourses();
+    checkPrerequisites();
+  }
+
+  // ============================================================
+  // US3 — INSTANT PREREQUISITE CHECK (server-side rules, shown on selection)
+  // ============================================================
+  var prereqResults = Object.create(null), prereqVersion = 0;
+
+  function renderPrerequisiteBadge(input, result){
+    var label = input.closest('.semester-course');
+    var next = label.nextElementSibling;
+    if(next && next.classList.contains('prerequisite-check')) next.remove();
+    label.classList.toggle('has-prereq-error', Boolean(result && result.status === 'missing'));
+    if(!result || (result.status !== 'missing' && result.status !== 'met')) return;
+    var badge = document.createElement('div');
+    badge.setAttribute('role', 'status');
+    if(result.status === 'missing'){
+      badge.className = 'prerequisite-check warning visible';
+      badge.textContent = '⛔ ' + result.message;
+      var list = document.createElement('div'); list.className = 'prerequisite-detail';
+      list.textContent = result.missing.map(function(item){
+        return item.code + (item.name ? ' — ' + item.name : '') + ' (' + (item.kind === 'corequisite' ? 'corequisite: ' : '') + item.detail + ')';
+      }).join('; ') + '. The course cannot be added until this is resolved.';
+      badge.appendChild(list);
+    } else {
+      badge.className = 'prerequisite-check ok visible';
+      badge.textContent = '✓ ' + result.message;
+    }
+    label.after(badge);
+  }
+
+  async function checkPrerequisites(round){
+    var inputs = Array.from(semesterCoursesEl.querySelectorAll('input'));
+    if(!inputs.length || !window.scheduleCurrentUser) return;
+    var version = ++prereqVersion;
+    try {
+      var response = await fetch('/api/prerequisites/check', {method:'POST', credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({courses:inputs.map(function(input){ return input.value; }),
+          cart:inputs.filter(function(input){ return input.checked; }).map(function(input){ return input.value; })})});
+      if(!response.ok || version !== prereqVersion) return;
+      var data = await response.json();
+      var changed = false;
+      inputs.forEach(function(input){
+        var result = data.results[normalizeCourseCode(input.value)];
+        prereqResults[normalizeCourseCode(input.value)] = result;
+        var blocked = Boolean(result && result.status === 'missing');
+        if(blocked && input.checked){ input.checked = false; changed = true; }
+        input.disabled = blocked || input.dataset.noSections === '1';
+        input.title = blocked ? result.message : '';
+        renderPrerequisiteBadge(input, result);
+      });
+      if(changed){
+        updateSelectedCourses();
+        // Unchecking a course can invalidate a corequisite of another one: re-check until stable.
+        if((round || 0) < 3) checkPrerequisites((round || 0) + 1);
+      }
+    } catch (err) {
+      console.error('Prerequisite check failed:', err);
+    }
   }
 
   function importedSlot(section, lectureSection){
@@ -1772,14 +1847,14 @@ try {
   function updateSelectedCourses(){
     state.courses = selectedCurriculumCourses();
     state.results = []; state.searched = false; state.currentIndex = 0;
-    state.truncated = false; state.combosChecked = 0;
+    state.truncated = false; state.combosChecked = 0; state.diagnosis = null;
+    if(typeof markConflictingCourses === 'function') markConflictingCourses(null);
     statusLine.className = 'status-line';
     statusLine.textContent = state.courses.length + ' courses selected.';
     renderBoard();
   }
 
-  semesterCoursesEl.addEventListener('change', updateSelectedCourses);
-  dayOffSelect.addEventListener('change', updateSelectedCourses);
+  semesterCoursesEl.addEventListener('change', function(){ updateSelectedCourses(); checkPrerequisites(); });
 
   function setCurriculumCatalog(curriculum){
     curriculumCatalog = [];
@@ -1928,7 +2003,77 @@ try {
       || a.sparseDays - b.sparseDays || a.classDays - b.classDays;
   }
 
-  function generateSchedules(courses, dayOff){
+  // US1: preferred time-slot filters (minutes since midnight, inclusive bounds).
+  var TIME_WINDOWS = {
+    morning:{label:'Morning only (before 12:00)', start:0, end:12*60},
+    afternoon:{label:'Afternoon only (12:00–17:00)', start:12*60, end:17*60}
+  };
+
+  function withinTimeWindow(mm, windowKey){
+    var range = TIME_WINDOWS[windowKey];
+    if(!range) return true;
+    return mm.every(function(meeting){ return meeting.start >= range.start && meeting.end <= range.end; });
+  }
+
+  function filteredCourseOptions(courses, dayOff, windowKey){
+    return courses.map(function(course){
+      return buildCourseOptions(course).filter(function(option){
+        return (!dayOff || !option.mm.some(function(meeting){ return meeting.day === dayOff; }))
+          && withinTimeWindow(option.mm, windowKey);
+      });
+    });
+  }
+
+  function slotOverlaps(courseA, slotA, courseB, slotB){
+    var found = [];
+    meetingsInMinutes(slotA).forEach(function(a){
+      meetingsInMinutes(slotB).forEach(function(b){
+        if(a.day === b.day && weeksOverlap(a, b) && overlaps(a.start, a.end, b.start, b.end)){
+          found.push({a:{course:courseA.code || courseA.name, section:slotA.label},
+            b:{course:courseB.code || courseB.name, section:slotB.label}, day:a.day,
+            start:Math.max(a.start, b.start), end:Math.min(a.end, b.end)});
+        }
+      });
+    });
+    return found;
+  }
+
+  /** Why no conflict-free schedule exists: courses with no section left after filters,
+      and course pairs whose every remaining option overlaps (with the overlapping sections). */
+  function diagnoseNoSchedule(courses, dayOff, windowKey){
+    var options = filteredCourseOptions(courses, dayOff, windowKey);
+    var empty = courses.filter(function(course, index){ return !options[index].length; });
+    var pairs = [];
+    for(var i = 0; i < courses.length; i++){
+      for(var j = i + 1; j < courses.length; j++){
+        if(!options[i].length || !options[j].length) continue;
+        var compatible = options[i].some(function(a){
+          return options[j].some(function(b){
+            return !a.mm.some(function(x){ return b.mm.some(function(y){
+              return x.day === y.day && weeksOverlap(x, y) && overlaps(x.start, x.end, y.start, y.end); }); });
+          });
+        });
+        if(compatible) continue;
+        var seen = {}, sections = [];
+        options[i].forEach(function(a){
+          options[j].forEach(function(b){
+            [a.lecture, a.practice].filter(Boolean).forEach(function(slotA){
+              [b.lecture, b.practice].filter(Boolean).forEach(function(slotB){
+                slotOverlaps(courses[i], slotA, courses[j], slotB).forEach(function(item){
+                  var key = item.a.section + '|' + item.b.section + '|' + item.day + item.start;
+                  if(!seen[key] && sections.length < 4){ seen[key] = true; sections.push(item); }
+                });
+              });
+            });
+          });
+        });
+        pairs.push({a:courses[i], b:courses[j], overlaps:sections});
+      }
+    }
+    return {empty:empty, pairs:pairs};
+  }
+
+  function generateSchedules(courses, dayOff, windowKey){
     var ranked = [];
     var totalFound = 0;
     var nodesExplored = 0;
@@ -1937,11 +2082,7 @@ try {
     var busyByDay = {};
     DAYS.forEach(function(d){ busyByDay[d] = []; });
 
-    var courseOptions = courses.map(function(course){
-      return buildCourseOptions(course).filter(function(option){
-        return !dayOff || !option.mm.some(function(meeting){ return meeting.day === dayOff; });
-      });
-    });
+    var courseOptions = filteredCourseOptions(courses, dayOff, windowKey);
     var picks = new Array(courses.length);
 
     function fits(mm){
@@ -2009,14 +2150,34 @@ try {
   // ============================================================
   var statusLine = document.getElementById('statusLine');
 
-  document.getElementById('generateBtn').addEventListener('click', async function(){ // <--- добавили async
+  var timeWindowSelect = document.getElementById('timeWindowSelect');
+  document.getElementById('generateBtn').addEventListener('click', function(){ runGeneration(true); });
+
+  // US1: filters update the generated options immediately (no extra click).
+  function filtersChanged(){
+    if(state.searched || state.diagnosis) runGeneration(false);
+    else updateSelectedCourses();
+  }
+  dayOffSelect.addEventListener('change', filtersChanged);
+  timeWindowSelect.addEventListener('change', filtersChanged);
+
+  function markConflictingCourses(codes){
+    semesterCoursesEl.querySelectorAll('.semester-course').forEach(function(label){
+      var input = label.querySelector('input');
+      label.classList.toggle('has-schedule-conflict', Boolean(codes && codes.indexOf(input.value) !== -1));
+    });
+  }
+
+  async function runGeneration(save){
     statusLine.className = 'status-line';
     statusLine.textContent = '';
     // Always rebuild from the fixed curriculum sections, never saved/edited times.
     state.courses = selectedCurriculumCourses();
 
     var prerequisiteProblems = state.courses.map(function(course){
-      return {course:course, check:prerequisiteCheckFor(course)};
+      var result = prereqResults[normalizeCourseCode(course.code)];
+      return {course:course, check:result ? {type:result.status === 'missing' ? 'warning' : 'ok', blocking:result.status === 'missing'}
+        : prerequisiteCheckFor(course)};
     }).filter(function(item){
       return item.check && item.check.type === 'warning' && item.check.blocking;
     });
@@ -2030,7 +2191,7 @@ try {
     }
 
     // === ВСТАВИТЬ ЭТОТ БЛОК (Сохранение в базу данных Python) ===
-    try {
+    if(save) try {
       await fetch('/api/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2079,8 +2240,11 @@ try {
     }
 
     var t0 = performance.now();
-    var out = generateSchedules(state.courses, dayOffSelect.value);
+    var out = generateSchedules(state.courses, dayOffSelect.value, timeWindowSelect.value);
     var elapsedMs = performance.now() - t0;
+    state.diagnosis = out.results.length ? null : diagnoseNoSchedule(state.courses, dayOffSelect.value, timeWindowSelect.value);
+    markConflictingCourses(state.diagnosis ? state.diagnosis.pairs.reduce(function(codes, pair){
+      return codes.concat([pair.a.code, pair.b.code]); }, state.diagnosis.empty.map(function(course){ return course.code; })) : null);
 
     state.results = out.results;
     state.currentIndex = 0;
@@ -2090,9 +2254,10 @@ try {
     state.elapsedMs = elapsedMs;
     state.totalFound = out.totalFound;
     state.dayOff = dayOffSelect.value;
+    state.timeWindow = timeWindowSelect.value;
 
     renderBoard();
-  });
+  }
 
   // ============================================================
   // BOARD RENDERING
@@ -2177,10 +2342,34 @@ try {
       empty2.style.display = 'flex';
       empty2.style.flexDirection = 'column';
       empty2.style.justifyContent = 'center';
-      empty2.innerHTML = '<div class="big">No matching schedule found</div><div class="small">'
-        + (state.dayOff ? 'No schedule was found that keeps ' + state.dayOff + ' free. Choose another day off or change your course selection.'
-          : 'No conflict-free combination was found for these courses. Try changing your course selection.')
-        + (state.truncated ? ' The search reached its limit; other combinations may exist.' : '') + '</div>';
+      var filters = [state.dayOff ? state.dayOff + ' off' : '', state.timeWindow ? TIME_WINDOWS[state.timeWindow].label : '']
+        .filter(Boolean).join(' · ');
+      empty2.innerHTML = '<div class="no-schedule-warning" role="alert">⚠ No conflict-free schedules could be generated with your selected courses and filters</div>'
+        + '<div class="small">' + (filters ? 'Active filters: ' + escapeHtml(filters) + '. ' : '')
+        + (state.truncated ? 'The search reached its limit; other combinations may exist.' : '') + '</div>';
+      var diagnosis = state.diagnosis || {empty:[], pairs:[]};
+      var list = document.createElement('ul'); list.className = 'conflict-diagnosis';
+      diagnosis.empty.forEach(function(course){
+        var item = document.createElement('li');
+        item.innerHTML = '<b>' + escapeHtml(course.code || course.name) + '</b> — no open section fits the selected filters'
+          + (filters ? ' (' + escapeHtml(filters) + ')' : '') + '.';
+        list.appendChild(item);
+      });
+      diagnosis.pairs.forEach(function(pair){
+        var item = document.createElement('li');
+        item.innerHTML = '<b>' + escapeHtml(pair.a.code || pair.a.name) + '</b> and <b>' + escapeHtml(pair.b.code || pair.b.name)
+          + '</b> overlap in every available combination:' + '<span class="conflict-sections">' + pair.overlaps.map(function(o){
+            return '<code>' + escapeHtml(o.a.section) + '</code> ↔ <code>' + escapeHtml(o.b.section) + '</code> '
+              + o.day + ' ' + fmtMinutes(o.start) + '–' + fmtMinutes(o.end);
+          }).join('<br>') + '</span>';
+        list.appendChild(item);
+      });
+      if(!list.children.length){
+        var hint = document.createElement('li');
+        hint.textContent = 'Each pair of courses fits on its own, but not all of them together. Remove one course or relax the filters.';
+        list.appendChild(hint);
+      }
+      empty2.appendChild(list);
       boardBodyEl.appendChild(empty2);
       return;
     }
@@ -2252,6 +2441,10 @@ try {
     return wrap;
   }
 
+  function fmtMinutes(total){
+    return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+  }
+
   function escapeHtml(str){
     return String(str).replace(/[&<>"']/g, function(c){
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
@@ -2312,6 +2505,7 @@ try {
         });
       }
       updateSelectedCourses();
+      checkPrerequisites();
     } catch (err) {
       console.error("Ошибка загрузки с бэкенда:", err);
     }
@@ -3411,9 +3605,29 @@ try {
     });
     notifications.scrollTop = previousScroll;
   }
+  // US6: a seat alert links to /?tab=waitlists&section=CODE — open registration with that section selected.
+  var deepLink = (function(){
+    try { var query = new URLSearchParams(location.search); return query.get('tab') === 'waitlists' ? (query.get('section') || '') : null; }
+    catch(_) { return null; }
+  })();
+  function applyDeepLink(){
+    if(deepLink === null || !data) return;
+    var target = data.sections.find(function(section){ return section.section === deepLink; });
+    if(target){
+      var lecture = target.parent ? data.sections.find(function(section){ return section.section === target.parent; }) : target;
+      courseEl.value = lecture.course; sections();
+      lectureEl.value = lecture.section; practices();
+      if(target.parent){ practiceEl.value = target.section; practices(); }
+    }
+    var tab = document.getElementById('tabWaitlistBtn');
+    if(!tab.hidden) tab.click();
+    status(target ? 'Opened from a seat alert: ' + deepLink + '. Join the waitlist to register.' : 'The section from the alert is no longer published.', !target);
+    deepLink = null;
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch(_) {}
+  }
   async function refresh(){
     if(busy) return;
-    try { data = await api('/api/waitlists'); render(); }
+    try { data = await api('/api/waitlists'); render(); applyDeepLink(); }
     catch(err){ status(err.message, true); }
   }
   async function mutate(url, options){
@@ -3594,7 +3808,7 @@ try {
   <button type="button" id="openCourseNoticeBtn">Открыть</button>
   <button type="button" id="closeCourseNoticeBtn" aria-label="Закрыть уведомление">Закрыть</button>
 </div>
-<script src="/static/registration.js?v=20261111-sprint4"></script>
+<script src="/static/registration.js?v=20261111-qa"></script>
 <script src="/static/course-notifications.js?v=20261019-notices1"></script>
 <script src="/static/vendor/chart.umd.min.js?v=4.4.7"></script>
 <script src="/static/draft-resolver.js?v=20261111-sprint4"></script>

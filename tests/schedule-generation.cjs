@@ -98,5 +98,30 @@ for(const dayOff of ['', ...generator.DAYS]){
     if(index) assert(generator.compareQuality(generator.scheduleQuality(result.results[index-1]), generator.scheduleQuality(picks)) <= 0);
   }
 }
-module.exports = 'Passed: script syntax, gap ranking, sparse-day ranking, strict day off, impossible preferences, best results beyond 500, curriculum conflicts and quotas.';
+// US1 QA scenario 3: time-slot preference filters.
+const same = (actual, expected, message) => assert.equal(JSON.stringify(actual), JSON.stringify(expected), message);
+const named = (code, lectures) => { const item = course(lectures); item.code = code; return item; };
+const morningOrAfternoon = named('MIX', [lecture('Morning', [meeting('Mon','09:00','10:50')]), lecture('Afternoon', [meeting('Tue','13:00','14:50')])]);
+const lateOnly = named('LATE', [lecture('Evening', [meeting('Wed','17:30','18:20')])]);
+result = generator.generateSchedules([morningOrAfternoon], '', 'afternoon');
+same(result.results.map(picks => picks[0].lecture.label), ['Afternoon']);
+result = generator.generateSchedules([morningOrAfternoon], '', 'morning');
+same(result.results.map(picks => picks[0].lecture.label), ['Morning']);
+assert.equal(generator.generateSchedules([morningOrAfternoon], '', '').results.length, 2);
+for(const picks of generator.generateSchedules([morningOrAfternoon, named('PM', [lecture('PM', [meeting('Thu','12:00','16:50')])])], '', 'afternoon').results){
+  assert(picks.every(pick => generator.meetingsInMinutes(pick.lecture).every(item => item.start >= 720 && item.end <= 1020)));
+}
+
+// US1 QA scenario 2: no conflict-free schedule names the overlapping sections.
+const coreA = named('CORE A', [lecture('CORE A.01', [meeting('Mon','09:00','10:50')])]);
+const coreB = named('CORE B', [lecture('CORE B.01', [meeting('Mon','10:00','11:50')])]);
+assert.equal(generator.generateSchedules([coreA, coreB]).results.length, 0);
+let diagnosis = generator.diagnoseNoSchedule([coreA, coreB], '', '');
+assert.equal(diagnosis.pairs.length, 1);
+same(diagnosis.pairs[0].overlaps.map(o => [o.a.section, o.b.section, o.day, o.start, o.end]),
+  [['CORE A.01', 'CORE B.01', 'Mon', 600, 650]]);
+diagnosis = generator.diagnoseNoSchedule([lateOnly, morningOrAfternoon], '', 'afternoon');
+same(diagnosis.empty.map(item => item.code), ['LATE'], 'Filters that remove every section are reported');
+
+module.exports = 'Passed: script syntax, gap ranking, sparse-day ranking, strict day off, impossible preferences, best results beyond 500, curriculum conflicts and quotas, time-slot filters, no-schedule diagnostics.';
 if(require.main === module) console.log(module.exports);

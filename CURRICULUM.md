@@ -7,7 +7,12 @@ Choose a semester, select the required courses and electives, then click
 and cannot be edited or added in Schedule Builder. Each practice is paired only with its parent lecture;
 full sections (including occupied and reserved seats) are excluded.
 
-Optionally select a **Day off**: all results must keep that day free. Valid schedules
+Optionally select a **Day off** and **Preferred time slots** (*Morning only*, before 12:00, or
+*Afternoon only*, 12:00–17:00): every class in every result respects them. Changing a filter
+regenerates the results immediately. When no schedule fits, the board shows
+"No conflict-free schedules could be generated with your selected courses and filters", lists
+the overlapping sections (or the courses with no section inside the filters) and highlights
+those courses in the list. Valid schedules
 are ranked to favor short gaps and fewer days with only one or two lessons. Ranking
 counts each meeting as a lesson, penalizes total idle minutes, adds extra weight to
 gaps over an hour, and penalizes days with fewer than three lessons. These are
