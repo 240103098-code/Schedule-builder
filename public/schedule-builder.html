@@ -1098,6 +1098,7 @@ try {
   :root[data-theme="dark"] .course-card.has-prerequisite-error .course-code-input{background:#3A2230; color:#FFB7C4;}
 </style>
 <link rel="stylesheet" href="/static/registration.css?v=20261019-notices1">
+<link rel="stylesheet" href="/static/planner.css?v=20261111-sprint4">
 </head>
 <body class="auth-pending auth-locked">
 
@@ -1225,6 +1226,8 @@ try {
   <button class="top-tab-btn" id="tabDegreeBtn" type="button">02 · Degree Progress</button>
   <button class="top-tab-btn" id="tabWaitlistBtn" type="button">03 · Waitlists</button>
   <button class="top-tab-btn" id="tabRegistrationBtn" type="button">04 · Advisor &amp; Alerts</button>
+  <button class="top-tab-btn" id="tabDraftBtn" type="button">05 · Draft &amp; Conflicts</button>
+  <button class="top-tab-btn" id="tabGapsBtn" type="button" hidden>Degree Gap Visualizer</button>
   <span class="tabs-spacer"></span>
   <button class="theme-toggle" id="courseNotificationsBtn" type="button" hidden>Уведомления · 0</button>
   <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
@@ -1279,6 +1282,7 @@ try {
       <div class="nav-controls">
         <button class="nav-btn" id="prevBtn">← Previous</button>
         <button class="nav-btn" id="nextBtn">Next →</button>
+        <button class="board-save-btn" id="saveDraftBtn" type="button" disabled title="Copy this schedule into Draft &amp; Conflicts">Open in Draft →</button>
       </div>
     </div>
 
@@ -2098,6 +2102,7 @@ try {
   var boardBodyEl = document.getElementById('boardBody');
   var prevBtn = document.getElementById('prevBtn');
   var nextBtn = document.getElementById('nextBtn');
+  var saveDraftBtn = document.getElementById('saveDraftBtn');
 
   function pickSlots(pick){
     var slots = [{type:'lecture', slot: pick.lecture}];
@@ -2140,6 +2145,7 @@ try {
   }
 
   function renderBoard(){
+    saveDraftBtn.disabled = !(state.searched && state.results.length);
     if(!state.searched){
       boardCounterEl.textContent = '—';
       searchNoteEl.textContent = '';
@@ -2258,7 +2264,31 @@ try {
   nextBtn.addEventListener('click', function(){
     if(state.currentIndex < state.results.length - 1){ state.currentIndex++; renderBoard(); }
   });
+  // US7: copy the schedule on screen into the draft, where conflicts are resolved section by section.
+  saveDraftBtn.addEventListener('click', async function(){
+    var picks = state.results[state.currentIndex];
+    if(!picks) return;
+    saveDraftBtn.disabled = true;
+    try {
+      var response = await fetch('/api/draft/import', {method:'POST', credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({items:picks.map(function(pick){
+          return {course:pick.course.code, lecture:pick.lecture.section, practice:pick.practice ? pick.practice.section : ''};
+        })})});
+      var body = await response.json();
+      if(!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : 'Could not copy this schedule.');
+      window.dispatchEvent(new CustomEvent('draft:updated', {detail:body}));
+      document.getElementById('tabDraftBtn').click();
+    } catch (err) {
+      statusLine.className = 'status-line error';
+      statusLine.textContent = err.message;
+    } finally {
+      saveDraftBtn.disabled = !(state.searched && state.results.length);
+    }
+  });
   document.addEventListener('keydown', function(e){
+    if(e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if(!document.getElementById('paneSchedule').classList.contains('active')) return;
     if(e.key === 'ArrowLeft') prevBtn.click();
     if(e.key === 'ArrowRight') nextBtn.click();
   });
@@ -2307,9 +2337,9 @@ try {
 (function(){
   "use strict";
 
-  ['Schedule','Degree','Waitlist','Registration'].forEach(function(name){
+  ['Schedule','Degree','Waitlist','Registration','Draft','Gaps'].forEach(function(name){
     document.getElementById('tab' + name + 'Btn').addEventListener('click', function(){
-      ['Schedule','Degree','Waitlist','Registration'].forEach(function(other){
+      ['Schedule','Degree','Waitlist','Registration','Draft','Gaps'].forEach(function(other){
         document.getElementById('tab' + other + 'Btn').classList.toggle('active', name === other);
         document.getElementById('pane' + other).classList.toggle('active', name === other);
       });
@@ -3490,12 +3520,84 @@ try {
     </div>
   </div>
 </div>
+<!-- ============ VIEW 5: US7 — Class Time Conflict Resolver ============ -->
+<div class="view-pane" id="paneDraft">
+  <div class="degree-app">
+    <div class="degree-sidebar">
+      <div class="brand"><span class="mark">05</span></div>
+      <h1 class="title">Draft &amp; Conflicts</h1>
+      <p class="subtitle">Build a draft section by section. Time overlaps are detected instantly, and the resolver suggests open sections that fit the rest of your week.</p>
+      <label class="planner-label" for="draftSemester">SEMESTER</label>
+      <select class="waitlist-select" id="draftSemester"></select>
+      <label class="planner-label" for="draftSearch">FIND A COURSE</label>
+      <input class="waitlist-select" id="draftSearch" type="search" placeholder="Code or name, e.g. CSS 105" autocomplete="off">
+      <label class="planner-label" for="draftCourse">COURSE</label>
+      <select class="waitlist-select" id="draftCourse"></select>
+      <label class="planner-label" for="draftLecture">LECTURE SECTION</label>
+      <select class="waitlist-select" id="draftLecture"></select>
+      <label class="planner-label" for="draftPractice">LINKED PRACTICE</label>
+      <select class="waitlist-select" id="draftPractice"></select>
+      <div class="draft-precheck" id="draftPrecheck" role="status" aria-live="polite"></div>
+      <button class="generate-btn" id="draftAddBtn" type="button" disabled>Add to draft</button>
+      <div class="status-line" id="draftStatus" role="status" aria-live="polite"></div>
+      <hr class="planner-divider">
+      <div class="planner-row">
+        <p class="planner-label">MY DRAFT</p>
+        <button class="planner-link" id="draftClearBtn" type="button">Clear draft</button>
+      </div>
+      <div class="draft-list" id="draftList" aria-live="polite"></div>
+      <p class="live-note"><span class="live-dot" aria-hidden="true"></span><span id="draftLive">Connecting to live seat data…</span></p>
+    </div>
+    <div class="degree-main">
+      <div class="draft-top">
+        <div>
+          <p class="board-counter-label">DRAFT STATUS</p>
+          <p class="board-counter" id="draftCounter">—</p>
+          <p class="search-note" id="draftNote"></p>
+        </div>
+        <span class="draft-health" id="draftHealth" role="status"></span>
+      </div>
+      <div id="draftBanner"></div>
+      <div class="resolver" id="draftResolver" aria-live="polite"></div>
+      <div class="draft-grid-title"><h2>Weekly grid</h2><span id="draftGridHint">Red outline = overlapping lessons · dashed = preview of a fix</span></div>
+      <div id="draftGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VIEW 6: US8 — Degree Audit Gap Visualizer (advisor) ============ -->
+<div class="view-pane" id="paneGaps">
+  <div class="degree-app">
+    <div class="degree-sidebar">
+      <div class="brand"><span class="mark">06</span></div>
+      <h1 class="title">Degree Gap Visualizer</h1>
+      <p class="subtitle">See what each student in your department still needs for graduation, then find courses they can take next term.</p>
+      <label class="planner-label" for="gapSearch">STUDENTS IN YOUR DEPARTMENT</label>
+      <input class="waitlist-select" id="gapSearch" type="search" placeholder="Search by name or email" autocomplete="off">
+      <div class="gap-student-list" id="gapStudents" aria-live="polite"></div>
+      <div class="status-line" id="gapStatus" role="status" aria-live="polite"></div>
+    </div>
+    <div class="degree-main">
+      <div class="draft-top">
+        <div>
+          <p class="board-counter-label">DEGREE AUDIT</p>
+          <p class="board-counter" id="gapStudentName">—</p>
+          <p class="search-note" id="gapStudentMeta"></p>
+        </div>
+      </div>
+      <div id="gapBody"></div>
+    </div>
+  </div>
+</div>
 <div id="courseNoticeToast" hidden role="status" aria-live="polite">
   <strong id="courseNoticeToastTitle"></strong><p id="courseNoticeToastText"></p>
   <button type="button" id="openCourseNoticeBtn">Открыть</button>
   <button type="button" id="closeCourseNoticeBtn" aria-label="Закрыть уведомление">Закрыть</button>
 </div>
-<script src="/static/registration.js?v=20261028-email1"></script>
+<script src="/static/registration.js?v=20261111-sprint4"></script>
 <script src="/static/course-notifications.js?v=20261019-notices1"></script>
+<script src="/static/vendor/chart.umd.min.js?v=4.4.7"></script>
+<script src="/static/draft-resolver.js?v=20261111-sprint4"></script>
+<script src="/static/gap-visualizer.js?v=20261111-sprint4"></script>
 </body>
 </html>

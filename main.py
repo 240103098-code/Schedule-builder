@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from waitlist_service import install_waitlists
 from registration_service import install_registration
+from conflict_resolver import install_conflict_resolver
+from degree_gaps import install_degree_gaps
 import mailer
 
 
@@ -640,7 +642,17 @@ def send_verification(db: Session, user: UserModel) -> None:
 app = FastAPI(title="Schedule & Degree Audit API")
 
 waitlists = install_waitlists(app, Base, SessionLocal, UserModel, get_current_user, default_curriculum())
-install_registration(app, Base, waitlists, get_current_user, default_curriculum())
+registration = install_registration(app, Base, waitlists, get_current_user, default_curriculum())
+conflict_resolver = install_conflict_resolver(app, Base, waitlists, registration, get_current_user, default_curriculum())
+
+
+def curriculum_for_user(db: Session, user_id: int) -> tuple[dict, str]:
+    """A student's saved curriculum, or the bundled one they see before uploading."""
+    curriculum = db.query(CurriculumModel).filter(CurriculumModel.owner_id == user_id).first()
+    return (public_curriculum(curriculum), "uploaded") if curriculum else (default_curriculum(), "default")
+
+
+install_degree_gaps(app, SessionLocal, registration, conflict_resolver, UserModel, get_current_user, curriculum_for_user)
 
 
 @app.get('/api/auth/config')

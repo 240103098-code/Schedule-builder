@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   var busy = false, timer = null, current = null, comments = new Map(), requestCourse = '', catalogRevision = '',
-    refreshVersion = 0, sectionChoices = new Map(), inboxRevision = '', telegramWasAvailable = null, emailWasAvailable = null;
+    refreshVersion = 0, announcedRole = null, sectionChoices = new Map(), inboxRevision = '', telegramWasAvailable = null, emailWasAvailable = null;
   var el = function (id) { return document.getElementById(id); };
   function status(message, error) {
     el('registrationStatus').textContent = message;
@@ -151,15 +151,21 @@
     el('registrationIdentity').textContent = (data.role === 'advisor' ? 'Academic advisor' : 'Student') +
       ' · ' + (data.department || 'Department has not been assigned');
     var isAdvisor = data.role === 'advisor';
+    if (data.role !== announcedRole) {
+      announcedRole = data.role;
+      window.dispatchEvent(new CustomEvent('registration:role', {detail: {role: data.role, department: data.department}}));
+    }
     el('accountAccessRole').textContent = (isAdvisor ? 'Advisor' : 'Student') + (data.department ? ' · ' + data.department : '');
     el('registrationTitle').textContent = isAdvisor ? 'Advisor workspace' : 'Requests & Alerts';
     el('registrationIntro').textContent = isAdvisor
       ? 'Review requests from students in your department. Allocate one personal extra seat in a lecture and practice, or reject the request with a comment.'
       : 'Choose any course and explain why you need an extra seat. After approval, use the reserved seat from your request card.';
-    ['Schedule','Degree','Waitlist'].forEach(function (name) { el('tab' + name + 'Btn').hidden = isAdvisor; });
+    ['Schedule','Degree','Waitlist','Draft'].forEach(function (name) { el('tab' + name + 'Btn').hidden = isAdvisor; });
+    el('tabGapsBtn').hidden = !isAdvisor;
     el('tabRegistrationBtn').textContent = isAdvisor ? 'Advisor workspace' : '04 · Requests & Alerts';
-    if (isAdvisor && !el('paneRegistration').classList.contains('active')) {
-      ['Schedule','Degree','Waitlist'].forEach(function (name) {
+    if (!isAdvisor && el('paneGaps').classList.contains('active')) el('tabScheduleBtn').click();
+    if (isAdvisor && !el('paneRegistration').classList.contains('active') && !el('paneGaps').classList.contains('active')) {
+      ['Schedule','Degree','Waitlist','Draft'].forEach(function (name) {
         el('pane' + name).classList.remove('active'); el('tab' + name + 'Btn').classList.remove('active');
       });
       el('paneRegistration').classList.add('active'); el('tabRegistrationBtn').classList.add('active');
@@ -409,7 +415,7 @@
   });
   el('tabRegistrationBtn').addEventListener('click', function () { selection(); refresh(); });
   function start() {
-    refreshVersion++; telegramWasAvailable = null; emailWasAvailable = null; current = null; comments.clear(); sectionChoices.clear(); requestCourse = ''; catalogRevision = ''; inboxRevision = ''; requestStatus(''); refresh(); if (timer) clearInterval(timer);
+    announcedRole = null; refreshVersion++; telegramWasAvailable = null; emailWasAvailable = null; current = null; comments.clear(); sectionChoices.clear(); requestCourse = ''; catalogRevision = ''; inboxRevision = ''; requestStatus(''); refresh(); if (timer) clearInterval(timer);
     timer = setInterval(function () { if (!document.hidden && el('paneRegistration').classList.contains('active')) refresh(); }, 2000);
   }
   window.addEventListener('auth:ready', start);
