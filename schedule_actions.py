@@ -37,7 +37,7 @@ def swap_section(service, user_id, enrollment_id, payload):
                 or lecture.course != enrollment.course or practice.course != enrollment.course):
             raise HTTPException(422, 'Select a lecture and linked practice of the same course.')
         if (enrollment.lecture, enrollment.practice) == (payload.lecture, payload.practice):
-            return
+            raise HTTPException(409, 'You are already enrolled in these sections. Select a different lecture or practice to swap. Your original enrollment is unchanged.')
         hold = db.get(service.Hold, user_id)
         if (not hold or hold.on_hold or (not service.academic and
                 time.time() - hold.verified_at > int(os.getenv('HOLD_VERIFICATION_TTL_SECONDS', '900')))):

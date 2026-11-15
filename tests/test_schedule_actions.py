@@ -50,6 +50,21 @@ class ScheduleActionsTests(unittest.TestCase):
         self.assertEqual(error.exception.detail, 'Target section is now full')
         self.assertEqual(self.service.snapshot(1)['enrollments'][0], self.enrollment)
 
+    def test_api_full_target_and_same_sections_return_visible_errors(self):
+        from types import SimpleNamespace
+        app = FastAPI()
+        install_schedule_actions(app, self.service, lambda: SimpleNamespace(id=1))
+        self.service.join(2, self.target)
+        with TestClient(app) as client:
+            path = f"/api/enrollments/{self.enrollment['id']}/swap"
+            same = client.post(path, json=self.pair.model_dump())
+            self.assertEqual(same.status_code, 409)
+            self.assertIn('already enrolled', same.json()['detail'])
+            full = client.post(path, json=self.target.model_dump())
+            self.assertEqual(full.status_code, 409)
+            self.assertEqual(full.json()['detail'], 'Target section is now full')
+        self.assertEqual(self.service.snapshot(1)['enrollments'][0], self.enrollment)
+
     def test_failure_after_write_rolls_back_both_sections(self):
         with patch.object(self.service, 'promote', side_effect=RuntimeError('injected failure')):
             with self.assertRaises(RuntimeError):

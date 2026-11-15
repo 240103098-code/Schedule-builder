@@ -3475,6 +3475,7 @@ try {
       <div id="waitlistTimes" aria-live="polite"></div>
       <button class="generate-btn" id="joinWaitlistBtn" type="button" disabled>Join waitlist / enroll</button>
       <button class="add-course-btn" id="swapSectionBtn" type="button" disabled>Swap enrolled section</button>
+      <div class="status-line" id="swapSectionStatus" role="status" aria-live="polite"></div>
       <p class="semester-note">To swap, choose the same course and a new lecture/practice pair. Your current seat stays enrolled if the swap fails.</p>
       <label class="section-label" for="calendarStart">SEMESTER START (week 1)</label>
       <input class="waitlist-select" id="calendarStart" type="date" required>
@@ -3554,8 +3555,7 @@ try {
       window.ScheduleTimetable.render(events, 'Фиксированное время выбранной лекции и практики'));
     joinBtn.disabled = busy || !lectureEl.value || !practiceEl.value;
     var enrolled = data.enrollments.find(function(e){ return e.course === courseEl.value; });
-    document.getElementById('swapSectionBtn').disabled = busy || !enrolled || !practiceEl.value ||
-      (enrolled.lecture === lectureEl.value && enrolled.practice === practiceEl.value);
+    document.getElementById('swapSectionBtn').disabled = busy || !enrolled || !lectureEl.value || !practiceEl.value;
     document.getElementById('exportCalendarBtn').disabled = busy;
     document.getElementById('demoSeatBtn').disabled = busy || !data.waitlists.some(function(entry){
       return entry.lecture === lectureEl.value && entry.practice === practiceEl.value && entry.status !== 'enrolled';
@@ -3642,11 +3642,25 @@ try {
     try { data = await api('/api/waitlists'); render(); applyDeepLink(); }
     catch(err){ status(err.message, true); }
   }
-  async function mutate(url, options){
+  async function mutate(url, options, swapFeedback){
     if(busy) return;
     busy = true; joinBtn.disabled = true;
-    try { data = await api(url, options); status(data.message || 'Registration updated.'); }
-    catch(err){ status(err.message, true); }
+    var feedback = document.getElementById('swapSectionStatus');
+    if(swapFeedback){
+      document.getElementById('swapSectionBtn').disabled = true;
+      feedback.className = 'status-line'; feedback.textContent = 'Checking target sections…';
+    }
+    try {
+      data = await api(url, options); status(data.message || 'Registration updated.');
+      if(swapFeedback){ feedback.className = 'status-line'; feedback.textContent = data.message; }
+    }
+    catch(err){
+      status(err.message, true);
+      if(swapFeedback){
+        feedback.className = 'status-line error';
+        feedback.textContent = err.message + (err.message === 'Target section is now full' ? '. Your original enrollment is unchanged.' : '');
+      }
+    }
     finally { busy = false; if(data) render(); }
   }
   courseEl.addEventListener('change', sections);
@@ -3656,7 +3670,7 @@ try {
     var enrolled = data && data.enrollments.find(function(e){ return e.course === courseEl.value; });
     if(!enrolled || busy) return;
     mutate('/api/enrollments/' + enrolled.id + '/swap', {method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({lecture:lectureEl.value, practice:practiceEl.value})});
+      body:JSON.stringify({lecture:lectureEl.value, practice:practiceEl.value})}, true);
   });
   document.getElementById('exportCalendarBtn').addEventListener('click', async function(){
     if(busy) return;
