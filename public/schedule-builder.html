@@ -3482,6 +3482,7 @@ try {
       <label class="section-label" for="calendarEnd">SEMESTER END</label>
       <input class="waitlist-select" id="calendarEnd" type="date" required>
       <button class="add-course-btn" id="exportCalendarBtn" type="button">Export Schedule (.ics)</button>
+      <div class="status-line" id="calendarExportStatus" role="status" aria-live="polite"></div>
       <p class="semester-note">Exports confirmed enrollments only. Pending waitlists block export. Import the file into Google Calendar, Outlook or Apple Calendar. Times: Asia/Qyzylorda. Unpublished locations appear as “Not specified”.</p>
       <div id="waitlistDemo" hidden>
         <p class="section-label">ACADEMIC SIMULATION</p>
@@ -3674,8 +3675,16 @@ try {
   });
   document.getElementById('exportCalendarBtn').addEventListener('click', async function(){
     if(busy) return;
+    var feedback = document.getElementById('calendarExportStatus');
+    function exportStatus(message, error){
+      feedback.className = 'status-line' + (error ? ' error' : '');
+      feedback.textContent = message;
+    }
     var start = document.getElementById('calendarStart'), end = document.getElementById('calendarEnd');
-    if(!start.reportValidity() || !end.reportValidity()) return;
+    if(!start.reportValidity() || !end.reportValidity()){
+      exportStatus('Enter the semester start and end dates before exporting.', true); return;
+    }
+    exportStatus('Exporting schedule…');
     busy = true; practices();
     try {
       var response = await fetch('/api/enrollments/calendar', {method:'POST', credentials:'same-origin',
@@ -3684,8 +3693,8 @@ try {
       var url = URL.createObjectURL(await response.blob()), link = document.createElement('a');
       link.href = url; link.download = 'confirmed-schedule.ics'; document.body.appendChild(link); link.click(); link.remove();
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-      status('Schedule exported successfully. Import confirmed-schedule.ics into your personal calendar.');
-    } catch(err){ status(err.message, true); }
+      exportStatus('Schedule exported successfully. Import confirmed-schedule.ics into your personal calendar.');
+    } catch(err){ exportStatus(err.message, true); }
     finally { busy = false; if(data) practices(); }
   });
   joinBtn.addEventListener('click', function(){
