@@ -1115,7 +1115,7 @@ try {
     <div class="auth-brand">
       <span class="auth-brand-mark">SB</span>
       <span class="auth-brand-name">Schedule Builder</span>
-      <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
+      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Switch color theme"></button>
     </div>
 
     <div class="auth-view active" id="authLoadingView">
@@ -1238,7 +1238,7 @@ try {
   <button class="top-tab-btn" id="tabGapsBtn" type="button" hidden>Degree Gap Visualizer</button>
   <span class="tabs-spacer"></span>
   <button class="theme-toggle" id="courseNotificationsBtn" type="button" hidden>Уведомления · 0</button>
-  <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
+  <button class="theme-toggle" data-theme-toggle type="button" aria-label="Switch color theme"></button>
   <div class="account-panel" id="accountPanel">
     <span class="account-avatar" id="accountAvatar"></span>
     <span class="account-copy">
@@ -1374,13 +1374,13 @@ try {
 (function(){
   function renderTheme(){
     var dark = document.documentElement.dataset.theme === 'dark';
-    document.querySelectorAll('.theme-toggle').forEach(function(button){
+    document.querySelectorAll('[data-theme-toggle]').forEach(function(button){
       button.textContent = dark ? '☀ Light mode' : '☾ Dark mode';
       button.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
       button.setAttribute('aria-pressed', String(dark));
     });
   }
-  document.querySelectorAll('.theme-toggle').forEach(function(button){
+  document.querySelectorAll('[data-theme-toggle]').forEach(function(button){
     button.addEventListener('click', function(){
       var theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.dataset.theme = theme;
