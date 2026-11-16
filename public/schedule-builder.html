@@ -1115,7 +1115,7 @@ try {
     <div class="auth-brand">
       <span class="auth-brand-mark">SB</span>
       <span class="auth-brand-name">Schedule Builder</span>
-      <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
+      <button class="theme-toggle" data-theme-toggle type="button" aria-label="Switch color theme"></button>
     </div>
 
     <div class="auth-view active" id="authLoadingView">
@@ -1238,7 +1238,7 @@ try {
   <button class="top-tab-btn" id="tabGapsBtn" type="button" hidden>Degree Gap Visualizer</button>
   <span class="tabs-spacer"></span>
   <button class="theme-toggle" id="courseNotificationsBtn" type="button" hidden>Уведомления · 0</button>
-  <button class="theme-toggle" type="button" aria-label="Switch color theme"></button>
+  <button class="theme-toggle" data-theme-toggle type="button" aria-label="Switch color theme"></button>
   <div class="account-panel" id="accountPanel">
     <span class="account-avatar" id="accountAvatar"></span>
     <span class="account-copy">
@@ -1374,13 +1374,13 @@ try {
 (function(){
   function renderTheme(){
     var dark = document.documentElement.dataset.theme === 'dark';
-    document.querySelectorAll('.theme-toggle').forEach(function(button){
+    document.querySelectorAll('[data-theme-toggle]').forEach(function(button){
       button.textContent = dark ? '☀ Light mode' : '☾ Dark mode';
       button.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
       button.setAttribute('aria-pressed', String(dark));
     });
   }
-  document.querySelectorAll('.theme-toggle').forEach(function(button){
+  document.querySelectorAll('[data-theme-toggle]').forEach(function(button){
     button.addEventListener('click', function(){
       var theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.dataset.theme = theme;
@@ -3474,6 +3474,16 @@ try {
       <select class="waitlist-select" id="waitlistPractice"></select>
       <div id="waitlistTimes" aria-live="polite"></div>
       <button class="generate-btn" id="joinWaitlistBtn" type="button" disabled>Join waitlist / enroll</button>
+      <button class="add-course-btn" id="swapSectionBtn" type="button" disabled>Swap enrolled section</button>
+      <div class="status-line" id="swapSectionStatus" role="status" aria-live="polite"></div>
+      <p class="semester-note">To swap, choose the same course and a new lecture/practice pair. Your current seat stays enrolled if the swap fails.</p>
+      <label class="section-label" for="calendarStart">SEMESTER START (week 1)</label>
+      <input class="waitlist-select" id="calendarStart" type="date" required>
+      <label class="section-label" for="calendarEnd">SEMESTER END</label>
+      <input class="waitlist-select" id="calendarEnd" type="date" required>
+      <button class="add-course-btn" id="exportCalendarBtn" type="button">Export Schedule (.ics)</button>
+      <div class="status-line" id="calendarExportStatus" role="status" aria-live="polite"></div>
+      <p class="semester-note">Exports confirmed enrollments only. Pending waitlists block export. Import the file into Google Calendar, Outlook or Apple Calendar. Times: Asia/Qyzylorda. Unpublished locations appear as “Not specified”.</p>
       <div id="waitlistDemo" hidden>
         <p class="section-label">ACADEMIC SIMULATION</p>
         <button class="add-course-btn" id="demoSeatBtn" type="button">Simulate one seat opening</button>
@@ -3545,6 +3555,9 @@ try {
     var preview = document.getElementById('waitlistPreview'); preview.replaceChildren(
       window.ScheduleTimetable.render(events, 'Фиксированное время выбранной лекции и практики'));
     joinBtn.disabled = busy || !lectureEl.value || !practiceEl.value;
+    var enrolled = data.enrollments.find(function(e){ return e.course === courseEl.value; });
+    document.getElementById('swapSectionBtn').disabled = busy || !enrolled || !lectureEl.value || !practiceEl.value;
+    document.getElementById('exportCalendarBtn').disabled = busy;
     document.getElementById('demoSeatBtn').disabled = busy || !data.waitlists.some(function(entry){
       return entry.lecture === lectureEl.value && entry.practice === practiceEl.value && entry.status !== 'enrolled';
     });
@@ -3630,16 +3643,60 @@ try {
     try { data = await api('/api/waitlists'); render(); applyDeepLink(); }
     catch(err){ status(err.message, true); }
   }
-  async function mutate(url, options){
+  async function mutate(url, options, swapFeedback){
     if(busy) return;
     busy = true; joinBtn.disabled = true;
-    try { data = await api(url, options); status('Registration updated.'); }
-    catch(err){ status(err.message, true); }
+    var feedback = document.getElementById('swapSectionStatus');
+    if(swapFeedback){
+      document.getElementById('swapSectionBtn').disabled = true;
+      feedback.className = 'status-line'; feedback.textContent = 'Checking target sections…';
+    }
+    try {
+      data = await api(url, options); status(data.message || 'Registration updated.');
+      if(swapFeedback){ feedback.className = 'status-line'; feedback.textContent = data.message; }
+    }
+    catch(err){
+      status(err.message, true);
+      if(swapFeedback){
+        feedback.className = 'status-line error';
+        feedback.textContent = err.message + (err.message === 'Target section is now full' ? '. Your original enrollment is unchanged.' : '');
+      }
+    }
     finally { busy = false; if(data) render(); }
   }
   courseEl.addEventListener('change', sections);
   lectureEl.addEventListener('change', practices);
   practiceEl.addEventListener('change', practices);
+  document.getElementById('swapSectionBtn').addEventListener('click', function(){
+    var enrolled = data && data.enrollments.find(function(e){ return e.course === courseEl.value; });
+    if(!enrolled || busy) return;
+    mutate('/api/enrollments/' + enrolled.id + '/swap', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lecture:lectureEl.value, practice:practiceEl.value})}, true);
+  });
+  document.getElementById('exportCalendarBtn').addEventListener('click', async function(){
+    if(busy) return;
+    var feedback = document.getElementById('calendarExportStatus');
+    function exportStatus(message, error){
+      feedback.className = 'status-line' + (error ? ' error' : '');
+      feedback.textContent = message;
+    }
+    var start = document.getElementById('calendarStart'), end = document.getElementById('calendarEnd');
+    if(!start.reportValidity() || !end.reportValidity()){
+      exportStatus('Enter the semester start and end dates before exporting.', true); return;
+    }
+    exportStatus('Exporting schedule…');
+    busy = true; practices();
+    try {
+      var response = await fetch('/api/enrollments/calendar', {method:'POST', credentials:'same-origin',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({start:start.value, end:end.value})});
+      if(!response.ok){ var error = await response.json(); throw new Error(typeof error.detail === 'string' ? error.detail : 'Check the semester dates.'); }
+      var url = URL.createObjectURL(await response.blob()), link = document.createElement('a');
+      link.href = url; link.download = 'confirmed-schedule.ics'; document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      exportStatus('Schedule exported successfully. Import confirmed-schedule.ics into your personal calendar.');
+    } catch(err){ exportStatus(err.message, true); }
+    finally { busy = false; if(data) practices(); }
+  });
   joinBtn.addEventListener('click', function(){
     mutate('/api/waitlists', {method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({lecture:lectureEl.value, practice:practiceEl.value})});

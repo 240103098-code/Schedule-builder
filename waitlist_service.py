@@ -575,6 +575,8 @@ class WaitlistService:
 
 def install_waitlists(app, base, sessions, user_model, get_user, curriculum):
     service = WaitlistService(base, sessions, user_model, curriculum)
+    from schedule_actions import install_schedule_actions
+    install_schedule_actions(app, service, get_user)
 
     def integration_auth(request: Request):
         secret = os.getenv("UNIVERSITY_WEBHOOK_TOKEN", "")
