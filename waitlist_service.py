@@ -542,7 +542,7 @@ class WaitlistService:
                 delivery = self.deliver(channel, payload, email, key)
             except Exception as exc:
                 # Store only safe numeric codes, never raw provider messages.
-                error = telegram_delivery.error_summary(exc)
+                error = mailer.diagnostic(exc) if channel == 'email' else telegram_delivery.error_summary(exc)
                 retry_after = getattr(exc, "retry_after", 0)
                 permanent_failure = isinstance(exc, telegram_delivery.TelegramError) and exc.permanent
             with self.transaction() as db:

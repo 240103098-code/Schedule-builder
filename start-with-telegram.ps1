@@ -22,7 +22,10 @@ if ($senderAddress) {
 
 try {
     Push-Location -LiteralPath $PSScriptRoot
-    python main.py
+    $port = if ($env:APP_PORT) { $env:APP_PORT } else { '8001' }
+    if (-not $env:APP_BASE_URL) { $env:APP_BASE_URL = "http://127.0.0.1:$port" }
+    Write-Host "Open http://127.0.0.1:$port"
+    python -m uvicorn main:app --host 127.0.0.1 --port $port --reload
 } finally {
     Pop-Location
     Remove-Item Env:TELEGRAM_BOT_TOKEN -ErrorAction SilentlyContinue
